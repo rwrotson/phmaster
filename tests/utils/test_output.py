@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from cli_app.utils.output import OutputFormat, echo_json, render_output
+from phmaster.utils.output import OutputFormat, echo_json, render_output
 
 
 def test_output_format_values() -> None:

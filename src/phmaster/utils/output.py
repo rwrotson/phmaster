@@ -5,7 +5,7 @@ from typing import Any
 
 import typer
 
-from cli_app.utils.console import get_console
+from phmaster.utils.console import get_console
 
 
 class OutputFormat(StrEnum):

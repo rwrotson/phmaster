@@ -2,8 +2,8 @@ from functools import cache
 
 from rich.console import Console
 
-from cli_app.config import ConsoleSettings, load_settings
-from cli_app.utils.format import get_theme
+from phmaster.config import ConsoleSettings, load_settings
+from phmaster.utils.format import get_theme
 
 
 def build_console(settings: ConsoleSettings) -> Console:

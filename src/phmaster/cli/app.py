@@ -3,16 +3,15 @@ from typing import Annotated
 
 from typer import Context, Option, Typer
 
-from cli_app.cli.callbacks import meta as meta_callbacks
-from cli_app.cli.commands import command_app, completion_app
-from cli_app.cli.context import AppContext
-from cli_app.cli.errors import ServiceErrorGroup
-from cli_app.config import load_settings
-from cli_app.utils.console import get_console
-from cli_app.utils.output import OutputFormat
+from phmaster.cli.callbacks import meta as meta_callbacks
+from phmaster.cli.commands import completion_app
+from phmaster.cli.context import AppContext
+from phmaster.cli.errors import ServiceErrorGroup
+from phmaster.config import load_settings
+from phmaster.utils.console import get_console
+from phmaster.utils.output import OutputFormat
 
-app = Typer(cls=ServiceErrorGroup)
-app.add_typer(command_app, name="command")
+app = Typer(cls=ServiceErrorGroup, help="Add smoothly loudness-normalized audio tracks to videos.")
 app.add_typer(completion_app, name="completion")
 
 

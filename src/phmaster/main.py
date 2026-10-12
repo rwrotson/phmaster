@@ -2,10 +2,10 @@ import sys
 
 from pydantic import ValidationError
 
-from cli_app.cli.app import app
-from cli_app.config import load_settings
-from cli_app.utils.console import get_console
-from cli_app.utils.log import setup_logging
+from phmaster.cli.app import app
+from phmaster.config import load_settings
+from phmaster.utils.console import get_console
+from phmaster.utils.log import setup_logging
 
 CONFIG_ERROR_EXIT_CODE = 2
 

@@ -1,10 +1,10 @@
-site_name: typer-template
-site_description: A template for building Python CLI apps using Typer with Rich output and structured logging
-repo_url: https://github.com/rwrotson/typer-template
-repo_name: rwrotson/typer-template
+site_name: phmaster
+site_description: Add smoothly loudness-normalized audio tracks to video files
+repo_url: https://github.com/rwrotson/phmaster
+repo_name: rwrotson/phmaster
 
 watch:
-  - src/cli_app/
+  - src/phmaster/
   - .env.example
   - README.md
 

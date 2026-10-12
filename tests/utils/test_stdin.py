@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from cli_app.utils.stdin import (
+from phmaster.utils.stdin import (
     is_stdin_piped,
     iter_stdin_lines,
     read_stdin,

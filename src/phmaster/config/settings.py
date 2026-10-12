@@ -46,7 +46,7 @@ class LogSettings(BaseModel):
     dir: Path | None = Field(
         default=None, description="Log directory; the platform user log directory if unset"
     )
-    file_name: str = Field(default="cli-app.log", description="Log file name")
+    file_name: str = Field(default="phmaster.log", description="Log file name")
     file_max_bytes: int = Field(
         default=4 * 1024 * 1024, ge=0, description="File size that triggers rotation"
     )
@@ -55,14 +55,14 @@ class LogSettings(BaseModel):
     @property
     def resolved_dir(self) -> Path:
         """Select the explicit log directory or the platform default."""
-        return self.dir if self.dir is not None else user_log_path("cli-app")
+        return self.dir if self.dir is not None else user_log_path("phmaster")
 
 
 class Settings(BaseSettings):
-    """Load application settings from CLI_APP_* variables and .env."""
+    """Load application settings from PHMASTER_* variables and .env."""
 
     model_config = SettingsConfigDict(
-        env_prefix="CLI_APP_",
+        env_prefix="PHMASTER_",
         env_file=".env",
         env_nested_delimiter="__",
         env_ignore_empty=True,
@@ -82,7 +82,7 @@ def nested_model(field: FieldInfo) -> type[BaseModel] | None:
 
 
 def env_fields(
-    model: type[BaseModel] = Settings, prefix: str = "CLI_APP_"
+    model: type[BaseModel] = Settings, prefix: str = "PHMASTER_"
 ) -> Iterator[tuple[str, FieldInfo]]:
     """Yield every leaf setting with its environment variable name."""
     for name, field in model.model_fields.items():

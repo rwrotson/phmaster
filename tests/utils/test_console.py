@@ -1,8 +1,8 @@
 import pytest
 from rich.console import Console
 
-from cli_app.config import ConsoleSettings
-from cli_app.utils.console import build_console, get_console
+from phmaster.config import ConsoleSettings
+from phmaster.utils.console import build_console, get_console
 
 
 def test_build_console_applies_settings() -> None:
@@ -26,5 +26,5 @@ def test_get_console_is_cached() -> None:
 
 
 def test_get_console_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CLI_APP_CONSOLE__WIDTH", "77")
+    monkeypatch.setenv("PHMASTER_CONSOLE__WIDTH", "77")
     assert get_console().width == 77

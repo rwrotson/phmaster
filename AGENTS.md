@@ -4,9 +4,11 @@ This file describes repository conventions for coding agents.
 
 ## Project Overview
 
-A template for building Python CLI apps using [Typer](https://typer.tiangolo.com/) with Rich output, structlog-based structured logging, and Pydantic Settings-based configuration.
+A CLI that adds smoothly loudness-normalized ("night mode") audio tracks to video files. For each selected audio track and preset it measures loudness over the whole track, plans a smooth non-causal gain curve (quiet parts raised, loud parts lowered ahead of time), applies it, encodes the result, and muxes it into a copy of the video next to the original tracks. Built on [Typer](https://typer.tiangolo.com/) with Rich output, structlog logging, and Pydantic Settings; DSP uses numpy/scipy; ffmpeg does all decoding, encoding, and muxing.
 
-Distribution name: `cli-app` | Python package: `cli_app` | Entry point: `cli-app`
+Distribution name: `phmaster` | Python package: `phmaster` | Entry point: `phmaster`
+
+Runtime requirement: `ffmpeg` and `ffprobe` (6.0+) on `PATH`. Integration tests generate their media with ffmpeg, so they need it too; CI installs it with apt.
 
 ## Commands
 
@@ -17,7 +19,7 @@ This project uses [uv](https://docs.astral.sh/uv/) for package management.
 uv sync --all-groups --locked
 
 # Run the CLI
-uv run cli-app
+uv run phmaster
 
 # Tasks via poethepoet (uv run poe <name>)
 uv run poe check        # fmt-check, lint, lint-imports, typecheck, test
@@ -97,7 +99,7 @@ It runs CI first, then:
 Pages Source must be set to **"GitHub Actions"** (Settings → Pages), and the `github-pages`
 environment must allow the `v*` tag (Settings → Environments → Deployment branches and tags → no
 restriction, or a `v*` rule) — otherwise the tag-triggered deploy is blocked. Site:
-https://rwrotson.github.io/typer-template/
+https://rwrotson.github.io/phmaster/
 
 Dependabot opens weekly grouped PRs for uv dependencies (`uv.lock`), GitHub Actions, and pre-commit
 hooks (`.github/dependabot.yml`).
@@ -106,45 +108,45 @@ hooks (`.github/dependabot.yml`).
 
 ### Package Layout & Build
 
-Source lives in `src/cli_app/` — the standard `src/` layout. The uv build backend is configured in `pyproject.toml`:
+Source lives in `src/phmaster/` — the standard `src/` layout. The uv build backend is configured in `pyproject.toml`:
 
 ```toml
 [tool.uv.build-backend]
-module-name = "cli_app"
+module-name = "phmaster"
 module-root = "src"
 ```
 
-Internal imports use the `cli_app.` prefix. Ruff bans relative imports except in package `__init__.py`, which may re-export from sibling modules (`from .module import ...`, never `..`):
+Internal imports use the `phmaster.` prefix. Ruff bans relative imports except in package `__init__.py`, which may re-export from sibling modules (`from .module import ...`, never `..`):
 
 ```python
-from cli_app.cli.app import app
-from cli_app.utils.console import get_console
+from phmaster.cli.app import app
+from phmaster.utils.console import get_console
 ```
 
 ### Entry Point & Startup
 
-`src/cli_app/main.py` is minimal: loads `Settings` (invalid configuration exits with code 2), calls `setup_logging(settings.log)`, `get_console()`, then `app()`. The console script entry point is `cli_app.main:main`.
+`src/phmaster/main.py` is minimal: loads `Settings` (invalid configuration exits with code 2), calls `setup_logging(settings.log)`, `get_console()`, then `app()`. The console script entry point is `phmaster.main:main`.
 
 ### CLI Structure
 
 ```
-src/cli_app/cli/app.py          — Root Typer app; registers subcommand groups and global options
-src/cli_app/cli/context.py      — AppContext (settings, console, output format) and get_app_context()
-src/cli_app/cli/errors.py       — ServiceErrorGroup: reports ServiceError on stderr and exits with its code
-src/cli_app/cli/callbacks/      — Eager option callbacks that print metadata and exit
-src/cli_app/cli/commands/       — Subcommand groups; each file creates its own Typer sub-app
-src/cli_app/services/           — Use cases, result types, and ServiceError subclasses
+src/phmaster/cli/app.py          — Root Typer app; registers subcommand groups and global options
+src/phmaster/cli/context.py      — AppContext (settings, console, output format) and get_app_context()
+src/phmaster/cli/errors.py       — ServiceErrorGroup: reports ServiceError on stderr and exits with its code
+src/phmaster/cli/callbacks/      — Eager option callbacks that print metadata and exit
+src/phmaster/cli/commands/       — Subcommand groups; each file creates its own Typer sub-app
+src/phmaster/services/           — Use cases, result types, and ServiceError subclasses
 ```
 
 The root callback (`app.py`) stores an `AppContext` in `ctx.obj` before any subcommand runs; commands read it with `get_app_context(ctx)`. It also adjusts the root logger level when `--verbose` is passed.
 
-Follow the layers in `docs/architecture.md`: commands call use cases in `cli_app.services`; services never import Typer, Rich, structlog, settings, `cli_app.cli`, or `cli_app.utils`. Expected failures raise a `ServiceError` subclass with an `exit_code` instead of `typer.Exit`. import-linter contracts in `pyproject.toml` enforce the boundaries (`uv run poe lint-imports`).
+Follow the layers in `docs/architecture.md`: commands call use cases in `phmaster.services`; services never import Typer, Rich, structlog, settings, `phmaster.cli`, or `phmaster.utils`. Expected failures raise a `ServiceError` subclass with an `exit_code` instead of `typer.Exit`. import-linter contracts in `pyproject.toml` enforce the boundaries (`uv run poe lint-imports`).
 
-To add a new command group: put the use case in `src/cli_app/services/`, create a file in `src/cli_app/cli/commands/`, define a Typer app, export it from `__init__.py`, then add `app.add_typer(...)` in `src/cli_app/cli/app.py`.
+To add a new command group: put the use case in `src/phmaster/services/`, create a file in `src/phmaster/cli/commands/`, define a Typer app, export it from `__init__.py`, then add `app.add_typer(...)` in `src/phmaster/cli/app.py`.
 
 ### Configuration via Environment Variables
 
-`src/cli_app/config/settings.py` defines `Settings` (Pydantic `BaseSettings`, prefix `CLI_APP_`, nested delimiter `__`) with defaults in code and the sections `ConsoleSettings` (`CLI_APP_CONSOLE__*`) and `LogSettings` (`CLI_APP_LOG__*`). `load_settings()` reads the environment and `.env`; empty values use defaults. `setup_logging()` and `build_console()` take a section instead of reading the environment themselves.
+`src/phmaster/config/settings.py` defines `Settings` (Pydantic `BaseSettings`, prefix `PHMASTER_`, nested delimiter `__`) with defaults in code and the sections `ConsoleSettings` (`PHMASTER_CONSOLE__*`) and `LogSettings` (`PHMASTER_LOG__*`). `load_settings()` reads the environment and `.env`; empty values use defaults. `setup_logging()` and `build_console()` take a section instead of reading the environment themselves.
 
 Every setting needs a `Field(description=...)` and a line in `.env.example`; tests in `tests/config/` enforce both. The docs configuration page is generated from `Settings` by `docs/gen_config_page.py`; do not edit it by hand.
 
@@ -152,7 +154,7 @@ Every setting needs a `Field(description=...)` and a line in `.env.example`; tes
 
 ### Logging (structlog)
 
-`setup_logging()` configures structlog bridged through stdlib via `ProcessorFormatter`. First-party commands use `get_logger()` from `cli_app.utils.log` so early logs go to stderr; third-party stdlib loggers share the same handler chain. Console output uses `ConsoleRenderer` by default; set `CLI_APP_LOG__FORMAT=json` for JSON. File output is always JSON.
+`setup_logging()` configures structlog bridged through stdlib via `ProcessorFormatter`. First-party commands use `get_logger()` from `phmaster.utils.log` so early logs go to stderr; third-party stdlib loggers share the same handler chain. Console output uses `ConsoleRenderer` by default; set `PHMASTER_LOG__FORMAT=json` for JSON. File output is always JSON.
 
 Use `structlog.contextvars.bind_contextvars(key=value)` to attach context that appears on every log line.
 
@@ -166,21 +168,21 @@ Before `setup_logging()` is called (e.g. in tests), structlog defaults to stderr
 
 | Module | Purpose |
 |--------|---------|
-| `src/cli_app/utils/console.py` | Singleton Rich `Console` with theming |
-| `src/cli_app/utils/log.py` | structlog setup; file + console handlers configured from `LogSettings` |
-| `src/cli_app/utils/output.py` | `OutputFormat` enum; `render_output()` and `echo_json()` helpers |
-| `src/cli_app/utils/stdin.py` | `is_stdin_piped()`, `read_stdin_if_piped()`, `iter_stdin_lines()` |
-| `src/cli_app/utils/meta.py` | Reads distribution metadata at runtime; scans `direct_url.json` for editable-install compat |
-| `src/cli_app/utils/format.py` | Rich `Theme` with `info`/`warning`/`danger` styles |
-| `src/cli_app/utils/emoji.py` | `Emoji` StrEnum for consistent emoji usage |
-| `src/cli_app/utils/progress.py` | Rich `Progress` bar wired to the project console |
-| `src/cli_app/utils/misc.py` | `find_project_root()` helper |
+| `src/phmaster/utils/console.py` | Singleton Rich `Console` with theming |
+| `src/phmaster/utils/log.py` | structlog setup; file + console handlers configured from `LogSettings` |
+| `src/phmaster/utils/output.py` | `OutputFormat` enum; `render_output()` and `echo_json()` helpers |
+| `src/phmaster/utils/stdin.py` | `is_stdin_piped()`, `read_stdin_if_piped()`, `iter_stdin_lines()` |
+| `src/phmaster/utils/meta.py` | Reads distribution metadata at runtime; scans `direct_url.json` for editable-install compat |
+| `src/phmaster/utils/format.py` | Rich `Theme` with `info`/`warning`/`danger` styles |
+| `src/phmaster/utils/emoji.py` | `Emoji` StrEnum for consistent emoji usage |
+| `src/phmaster/utils/progress.py` | Rich `Progress` bar wired to the project console |
+| `src/phmaster/utils/misc.py` | `find_project_root()` helper |
 
 ### Testing
 
 `tests/` mirrors the package (`cli/`, `config/`, `services/`, `utils/`). Test use cases directly in `tests/services/`, and argument parsing, output, and exit codes with `CliRunner` in `tests/cli/`.
 
-Tests run in parallel (pytest-xdist) and in random order (pytest-randomly); warnings are errors and each test has a 30-second timeout. Autouse fixtures in `tests/conftest.py` remove `CLI_APP_*` variables, run each test in a temporary working directory (so a local `.env` is not read), restore logging and structlog configuration, and clear the cached console. Tests must not depend on process-wide state or on each other. Reproduce an order-dependent failure with `uv run pytest -p randomly --randomly-seed=<seed>` (the seed is printed at the top of the run).
+Tests run in parallel (pytest-xdist) and in random order (pytest-randomly); warnings are errors and each test has a 30-second timeout. Autouse fixtures in `tests/conftest.py` remove `PHMASTER_*` variables, run each test in a temporary working directory (so a local `.env` is not read), restore logging and structlog configuration, and clear the cached console. Tests must not depend on process-wide state or on each other. Reproduce an order-dependent failure with `uv run pytest -p randomly --randomly-seed=<seed>` (the seed is printed at the top of the run).
 
 ### Type Checking
 

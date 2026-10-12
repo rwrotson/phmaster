@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-import cli_app.config.settings as settings_module
-from cli_app.config import LogSettings
-from cli_app.utils.log import _AppConsoleHandler, _AppFileHandler, setup_logging
+import phmaster.config.settings as settings_module
+from phmaster.config import LogSettings
+from phmaster.utils.log import _AppConsoleHandler, _AppFileHandler, setup_logging
 
 _EXPECTED_HANDLER_COUNT = 2
 
@@ -18,17 +18,17 @@ def test_setup_logging_uses_platform_log_dir_by_default(
     monkeypatch.setattr(settings_module, "user_log_path", lambda _: tmp_path / "platform")
     setup_logging(LogSettings())
     file_handler = next(h for h in clean_root_logger.handlers if isinstance(h, _AppFileHandler))
-    assert Path(file_handler.baseFilename) == tmp_path / "platform" / "cli-app.log"
+    assert Path(file_handler.baseFilename) == tmp_path / "platform" / "phmaster.log"
 
 
 def test_setup_logging_reads_settings_when_called_without_arguments(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, clean_root_logger: logging.Logger
 ) -> None:
-    monkeypatch.setenv("CLI_APP_LOG__DIR", str(tmp_path))
-    monkeypatch.setenv("CLI_APP_LOG__LEVEL", "ERROR")
+    monkeypatch.setenv("PHMASTER_LOG__DIR", str(tmp_path))
+    monkeypatch.setenv("PHMASTER_LOG__LEVEL", "ERROR")
     setup_logging()
     assert clean_root_logger.level == logging.ERROR
-    assert (tmp_path / "cli-app.log").exists()
+    assert (tmp_path / "phmaster.log").exists()
 
 
 def test_setup_logging_creates_log_dir(tmp_path: Path, clean_root_logger: logging.Logger) -> None:

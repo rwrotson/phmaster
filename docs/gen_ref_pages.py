@@ -3,7 +3,7 @@ from pathlib import Path
 import mkdocs_gen_files
 from mkdocs_gen_files.nav import Nav
 
-src = Path(__file__).parent.parent / "src" / "cli_app"
+src = Path(__file__).parent.parent / "src" / "phmaster"
 nav = Nav()  # type: ignore[no-untyped-call]  # Nav.__init__ has no annotations.
 
 for path in sorted(src.rglob("*.py")):

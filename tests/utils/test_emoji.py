@@ -1,4 +1,4 @@
-from cli_app.utils.emoji import Emoji
+from phmaster.utils.emoji import Emoji
 
 
 def test_emoji_values() -> None:

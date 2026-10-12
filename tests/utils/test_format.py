@@ -1,4 +1,4 @@
-from cli_app.utils.format import get_theme
+from phmaster.utils.format import get_theme
 
 
 def test_get_theme_has_expected_styles() -> None:

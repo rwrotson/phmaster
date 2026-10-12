@@ -3,8 +3,8 @@ from dataclasses import dataclass
 import typer
 from rich.console import Console
 
-from cli_app.config import Settings
-from cli_app.utils.output import OutputFormat
+from phmaster.config import Settings
+from phmaster.utils.output import OutputFormat
 
 
 @dataclass(frozen=True, slots=True)

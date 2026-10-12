@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer import Exit
 
-from cli_app.cli.callbacks.meta import summary_cb
+from phmaster.cli.callbacks.meta import summary_cb
 
 
 def test_summary_cb_noop_when_false() -> None:
@@ -16,8 +16,8 @@ def test_summary_cb_prints_summary_and_exits() -> None:
     mock_console = MagicMock()
 
     with (
-        patch("cli_app.cli.callbacks.meta.get_project_meta", return_value=mock_meta),
-        patch("cli_app.cli.callbacks.meta.get_console", return_value=mock_console),
+        patch("phmaster.cli.callbacks.meta.get_project_meta", return_value=mock_meta),
+        patch("phmaster.cli.callbacks.meta.get_console", return_value=mock_console),
         pytest.raises(Exit),
     ):
         summary_cb(v=True)

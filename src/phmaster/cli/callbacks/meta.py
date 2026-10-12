@@ -2,8 +2,8 @@ from typing import cast
 
 from typer import Exit
 
-from cli_app.utils.console import get_console
-from cli_app.utils.meta import ContactDict, DependencyDict, get_project_meta
+from phmaster.utils.console import get_console
+from phmaster.utils.meta import ContactDict, DependencyDict, get_project_meta
 
 
 def version_cb(v: bool = False) -> None:

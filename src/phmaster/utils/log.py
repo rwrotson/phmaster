@@ -5,7 +5,7 @@ from typing import TextIO, cast
 
 import structlog
 
-from cli_app.config import LogSettings, load_settings
+from phmaster.config import LogSettings, load_settings
 
 
 class _AppFileHandler(logging.handlers.RotatingFileHandler):

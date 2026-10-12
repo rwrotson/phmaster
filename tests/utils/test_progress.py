@@ -1,8 +1,8 @@
 import pytest
 from rich.console import Console
 
-from cli_app.utils.console import get_console
-from cli_app.utils.progress import generate_progress_bar
+from phmaster.utils.console import get_console
+from phmaster.utils.progress import generate_progress_bar
 
 
 def test_generate_progress_bar_uses_shared_console() -> None:

@@ -3,9 +3,9 @@ from typing import Any
 import typer
 from typer.core import TyperGroup
 
-from cli_app.cli.context import AppContext
-from cli_app.services.errors import ServiceError
-from cli_app.utils.output import OutputFormat, error_json
+from phmaster.cli.context import AppContext
+from phmaster.services.errors import ServiceError
+from phmaster.utils.output import OutputFormat, error_json
 
 
 class ServiceErrorGroup(TyperGroup):

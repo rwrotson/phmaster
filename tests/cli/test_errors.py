@@ -4,11 +4,11 @@ import typer
 from rich.console import Console
 from typer.testing import CliRunner
 
-from cli_app.cli.context import AppContext, get_app_context
-from cli_app.cli.errors import ServiceErrorGroup
-from cli_app.config import Settings
-from cli_app.services.errors import InvalidInputError, ServiceError
-from cli_app.utils.output import OutputFormat
+from phmaster.cli.context import AppContext, get_app_context
+from phmaster.cli.errors import ServiceErrorGroup
+from phmaster.config import Settings
+from phmaster.services.errors import InvalidInputError, ServiceError
+from phmaster.utils.output import OutputFormat
 
 runner = CliRunner()
 

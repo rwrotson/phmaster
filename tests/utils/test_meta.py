@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from cli_app.utils.meta import Meta, MetaDict, get_project_meta
+from phmaster.utils.meta import Meta, MetaDict, get_project_meta
 
 
 def test_fallback_meta() -> None:
@@ -17,7 +17,7 @@ def test_fallback_meta() -> None:
 
 def test_load_from_installed_package_name_and_version() -> None:
     m = Meta.load_from_installed_package()
-    assert m["name"] == "cli-app"
+    assert m["name"] == "phmaster"
     assert re.match(r"\d+\.\d+\.\d+", str(m["version"]))
 
 
@@ -84,9 +84,9 @@ def test_find_dist_name_skips_invalid_direct_url(
 
 def test_load_falls_back_to_packages_distributions(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Meta, "_find_dist_name_from_direct_url", staticmethod(lambda _: None))
-    monkeypatch.setattr(metadata, "packages_distributions", lambda: {"cli_app": ["cli-app"]})
+    monkeypatch.setattr(metadata, "packages_distributions", lambda: {"phmaster": ["phmaster"]})
 
-    assert Meta.load_from_installed_package()["name"] == "cli-app"
+    assert Meta.load_from_installed_package()["name"] == "phmaster"
 
 
 def test_load_returns_unknown_without_distribution(monkeypatch: pytest.MonkeyPatch) -> None:

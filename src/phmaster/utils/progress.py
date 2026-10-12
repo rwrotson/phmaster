@@ -4,7 +4,7 @@ from typing import Literal
 from rich.console import Console
 from rich.progress import Progress, ProgressColumn
 
-from cli_app.utils.console import get_console
+from phmaster.utils.console import get_console
 
 
 def generate_progress_bar(  # noqa: PLR0913 - mirrors rich.progress.Progress options

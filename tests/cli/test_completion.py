@@ -4,7 +4,7 @@ import sys
 import pytest
 from typer.testing import CliRunner
 
-from cli_app.cli.commands import completion_app
+from phmaster.cli.commands import completion_app
 
 runner = CliRunner()
 _EXIT_CODE = 3

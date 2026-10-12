@@ -6,7 +6,7 @@ A Python CLI template with Typer, Rich output, structlog logging, and environmen
 
 - Typer app with global `--verbose`, `--output-format text|json`, `--version`, and `--authors` options; JSON on stdout and diagnostics on stderr; piped stdin support; shell completion commands
 - A `services/` layer for use cases; `ServiceError` subclasses map to stderr messages and exit codes; import-linter contracts keep services independent of Typer, Rich, and settings
-- One Pydantic `Settings` with nested `CLI_APP_CONSOLE__*` and `CLI_APP_LOG__*` sections, a test that keeps `.env.example` in sync, and a generated configuration page
+- One Pydantic `Settings` with nested `PHMASTER_CONSOLE__*` and `PHMASTER_LOG__*` sections, a test that keeps `.env.example` in sync, and a generated configuration page
 - structlog logging to stderr (console or JSON) and a rotating JSON log file with UTC timestamps
 - Strict MyPy with the Pydantic plugin, Ruff, pytest in parallel and random order with a 95% branch coverage gate, poethepoet tasks, pre-commit hooks, Commitizen
 - CI with a lowest-dependency test job, package and strict docs builds, pip-audit, and trivy; actions pinned to commit SHAs; ProperDocs on GitHub Pages after CI passes on a release tag
@@ -36,7 +36,7 @@ A Python CLI template with Typer, Rich output, structlog logging, and environmen
 ```bash
 uv sync --all-groups --locked
 
-uv run cli-app --help
+uv run phmaster --help
 
 uv run pre-commit install
 ```
@@ -83,24 +83,24 @@ The root app exposes flags available to every subcommand:
 JSON output is written to stdout; diagnostics are written to stderr.
 
 ```bash
-cli-app --verbose command example-command hello
-cli-app --output-format json command example-command hello
-echo "hello" | cli-app command example-command
+phmaster --verbose command example-command hello
+phmaster --output-format json command example-command hello
+echo "hello" | phmaster command example-command
 ```
 
 ## Shell Completion
 
 ```bash
-cli-app completion install
-cli-app completion install --shell zsh
-cli-app completion show
+phmaster completion install
+phmaster completion install --shell zsh
+phmaster completion show
 ```
 
 Or directly via the built-in Typer flags:
 
 ```bash
-cli-app --install-completion
-cli-app --show-completion
+phmaster --install-completion
+phmaster --show-completion
 ```
 
 ## Versioning & Changelog
@@ -117,17 +117,17 @@ Bump type is inferred automatically: `fix:` → patch, `feat:` → minor, `feat!
 
 ## Configuration
 
-`cli_app.config.Settings` defines defaults in code and reads `CLI_APP_*` environment variables and `.env`; the process environment wins. Sections are nested with `__`:
+`phmaster.config.Settings` defines defaults in code and reads `PHMASTER_*` environment variables and `.env`; the process environment wins. Sections are nested with `__`:
 
 | Prefix | Controls |
 |--------|----------|
-| `CLI_APP_CONSOLE__*` | Rich console (width, colors, markup, quiet mode) |
-| `CLI_APP_LOG__*` | Log levels, console renderer, log directory, file rotation |
+| `PHMASTER_CONSOLE__*` | Rich console (width, colors, markup, quiet mode) |
+| `PHMASTER_LOG__*` | Log levels, console renderer, log directory, file rotation |
 
 ```env
-CLI_APP_LOG__LEVEL=DEBUG
-CLI_APP_LOG__FORMAT=json
-CLI_APP_CONSOLE__WIDTH=120
+PHMASTER_LOG__LEVEL=DEBUG
+PHMASTER_LOG__FORMAT=json
+PHMASTER_CONSOLE__WIDTH=120
 ```
 
 See `.env.example` and the generated configuration page in the documentation site.
@@ -136,7 +136,7 @@ See `.env.example` and the generated configuration page in the documentation sit
 
 ```
 src/
-└── cli_app/
+└── phmaster/
     ├── main.py              # entry point
     ├── cli/
     │   ├── app.py           # root Typer app (--verbose, --output-format, --version, --authors)
@@ -189,10 +189,10 @@ The distribution, import package, and CLI command have separate names. Follow th
 
 The example command is meant to be copied, then deleted. When your first real command exists, remove:
 
-- `src/cli_app/services/example.py` and `tests/services/test_example.py`
-- `src/cli_app/cli/commands/command.py`, its export in `src/cli_app/cli/commands/__init__.py`, and its `add_typer` line in `src/cli_app/cli/app.py`
+- `src/phmaster/services/example.py` and `tests/services/test_example.py`
+- `src/phmaster/cli/commands/command.py`, its export in `src/phmaster/cli/commands/__init__.py`, and its `add_typer` line in `src/phmaster/cli/app.py`
 - the `example-command` tests in `tests/cli/test_app.py` (keep the global option tests by pointing them at your command)
-- the `cli_app.services.example` and `cli_app.cli.commands.command` rows in `docs/reference/index.md`, and the example references in `docs/architecture.md` and `docs/notes.md`
+- the `phmaster.services.example` and `phmaster.cli.commands.command` rows in `docs/reference/index.md`, and the example references in `docs/architecture.md` and `docs/notes.md`
 
 Then remove imports the deleted tests leave unused (Ruff reports them as F401 but does not fix them automatically) and run `uv run poe check` and `uv run --group docs properdocs build --strict`.
 

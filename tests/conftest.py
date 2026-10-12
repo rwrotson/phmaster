@@ -6,14 +6,14 @@ from pathlib import Path
 import pytest
 import structlog
 
-from cli_app.utils.console import get_console
+from phmaster.utils.console import get_console
 
 
 @pytest.fixture(autouse=True)
 def isolated_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Keep the developer's CLI_APP_* variables and .env file out of every test."""
+    """Keep the developer's PHMASTER_* variables and .env file out of every test."""
     for name in list(os.environ):
-        if name.startswith("CLI_APP_"):
+        if name.startswith("PHMASTER_"):
             monkeypatch.delenv(name)
     monkeypatch.chdir(tmp_path)
 
