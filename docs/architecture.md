@@ -7,7 +7,7 @@ Commands are thin adapters: they read input, call a use case, and render its res
 | Services | `phmaster/services/` | Use cases, DSP, ffmpeg integration, result types, and `ServiceError` subclasses | Services, the standard library, numpy, scipy |
 | CLI | `phmaster/cli/` | Typer apps, options, `AppContext`, progress bar, error reporting, output | All layers |
 | Configuration | `phmaster/config/` | `Settings` with defaults in code, loaded from `PHMASTER_*` and `.env` | Pydantic and the standard library |
-| Utilities | `phmaster/utils/` | Console, logging, output, stdin, metadata helpers | Configuration and third-party libraries |
+| Utilities | `phmaster/utils/` | Console, logging, output, metadata helpers | Configuration and third-party libraries |
 | Entry point | `phmaster/main.py` | Validate configuration, set up logging, run the app | All layers |
 
 import-linter checks these boundaries with `uv run poe lint-imports`; the contracts are in `pyproject.toml`.

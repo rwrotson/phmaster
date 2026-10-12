@@ -15,7 +15,6 @@ from phmaster.cli.context import AppContext
 from phmaster.services.pipeline import ProgressSink
 from phmaster.utils.console import build_console
 from phmaster.utils.output import OutputFormat
-from phmaster.utils.progress import generate_progress_bar
 
 
 class RichProgressSink:
@@ -41,7 +40,7 @@ class RichProgressSink:
 @contextmanager
 def progress_sink(app_context: AppContext) -> Iterator[ProgressSink]:
     """Yield a progress sink drawing on stderr; hidden for JSON output."""
-    progress = generate_progress_bar(
+    progress = Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),

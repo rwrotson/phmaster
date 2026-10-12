@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from functools import cache
 from pathlib import Path
 from typing import Literal
 
@@ -78,7 +79,8 @@ class ProcessingSettings(BaseModel):
         description="`stereo` downmix, `keep` the source layout (up to 5.1), or `both`",
     )
     codec: CodecSetting = Field(
-        default="auto", description="Codec of new tracks; `auto` is AAC for stereo, E-AC-3 for 5.1"
+        default="auto",
+        description="Codec of new tracks; `auto` is AAC for mono and stereo, E-AC-3 for surround",
     )
     stereo_bitrate: str = Field(
         default="256k",
@@ -156,3 +158,9 @@ def env_fields(
 def load_settings() -> Settings:
     """Load settings from the environment and .env."""
     return Settings()
+
+
+@cache
+def get_settings() -> Settings:
+    """Return the settings of this process, loading them on first use."""
+    return load_settings()

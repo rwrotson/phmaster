@@ -7,7 +7,7 @@ Watch films at night without waking the neighbours. `phmaster` adds loudness-nor
 - Measures loudness per ITU-R BS.1770 and anchors it to the dialogue level, using the center channel when there is one
 - Presets `light`, `medium`, and `night`; generate several in one run
 - Stereo downmix with a dialogue boost for TV and laptop speakers, or keep 5.1 for a soundbar, or both
-- AAC for stereo and E-AC-3 for 5.1 by default, which TVs, soundbars, and media servers play without transcoding
+- AAC for stereo and E-AC-3 for surround by default, which TVs, soundbars, and media servers play without transcoding
 - Batch processing of directories, track selection by index or language, Docker image
 
 ## Requirements
@@ -60,7 +60,7 @@ Files that already contain phmaster tracks, and files whose output exists, are s
 |--------|---------|--------|
 | `-p, --preset` | `night` | `light`, `medium`, or `night`; repeat for several tracks |
 | `-l, --layout` | `stereo` | `stereo` downmix, `keep` the source layout (more than 5.1 becomes 5.1; a layout the codec cannot store uses back instead of side channels, or 5.1), or `both`; a track without a channel layout is refused unless it has 1, 2, 6, or 8 channels |
-| `-c, --codec` | `auto` | `auto` (AAC for stereo, E-AC-3 for 5.1), `aac`, `eac3`, `ac3`, `opus`, `flac` |
+| `-c, --codec` | `auto` | `auto` (AAC for mono and stereo, E-AC-3 for surround), `aac`, `eac3`, `ac3`, `opus`, `flac` |
 | `-t, --track` | all | Source audio track index; repeatable |
 | `--lang` | all | Source track language code, such as `rus`; repeatable |
 | `--center-mix` | `0` | Center (dialogue) level in stereo downmixes, dB; the ITU default is `-3` |

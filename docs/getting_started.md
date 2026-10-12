@@ -158,20 +158,6 @@ from phmaster.cli.commands import my_command_app
 app.add_typer(my_command_app, name="my-command")
 ```
 
-### Stdin support
-
-Use `read_stdin_if_piped()` to accept piped input as a fallback when an argument is omitted, and let the use case reject empty input:
-
-```python
-from phmaster.utils.stdin import read_stdin_if_piped
-
-
-@app.command()
-def process(ctx: Context, text: str | None = None) -> None:
-    result = run_use_case(text if text is not None else read_stdin_if_piped())
-    ...
-```
-
 ## Configuration
 
 Behaviour can be overridden via environment variables or a `.env` file. Sections are nested with `__`:

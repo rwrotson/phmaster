@@ -384,15 +384,6 @@ wheels = [
 ]
 
 [[package]]
-name = "emojis"
-version = "0.7.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/39/f0/9ad8cd2d3c0e89dc60f7d6b61f15ff1445935b58ddf6771bcc421b41a174/emojis-0.7.0.tar.gz", hash = "sha256:5f437674da878170239af9a8196e50240b5922d6797124928574008442196b52", size = 28362, upload-time = "2022-12-01T12:00:09.304Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/fc/25e5793c0f6f09626b94444a3b9faf386c587873fa8f696ad20d37e47387/emojis-0.7.0-py3-none-any.whl", hash = "sha256:a777926d8ab0bfdd51250e899a3b3524a1e969275ac8e747b4a05578fa597367", size = 28347, upload-time = "2022-12-01T12:00:07.163Z" },
-]
-
-[[package]]
 name = "execnet"
 version = "2.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1087,7 +1078,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "commitizen" },
-    { name = "emojis" },
     { name = "import-linter" },
     { name = "mypy" },
     { name = "poethepoet" },
@@ -1123,7 +1113,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "commitizen", specifier = ">=4.19.2" },
-    { name = "emojis", specifier = ">=0.7.0" },
     { name = "import-linter", specifier = ">=2.15" },
     { name = "mypy", specifier = ">=2.4.0" },
     { name = "poethepoet", specifier = ">=0.48.0" },

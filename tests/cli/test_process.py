@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from mediagen import AudioSpec, make_media, make_unknown_layout_wav
+from mediagen import AudioSpec, ebur128, make_media, make_unknown_layout_wav
 from phmaster.cli.app import app
 from phmaster.cli.commands.process import resolve_format, resolve_presets, resolve_selection
 from phmaster.config import ProcessingSettings
@@ -90,6 +90,17 @@ def test_process_refuses_ambiguous_channel_layout(tmp_path: Path) -> None:
     assert result.exit_code == 4
     assert "a:0 has 3 channels and no channel layout" in result.stderr
     assert sorted(path.name for path in tmp_path.iterdir()) == ["audio.wav"]
+
+
+def test_process_downmixes_six_channels_without_a_layout_as_5_1(tmp_path: Path) -> None:
+    # Only the center carries sound, so a wrong channel guess would leave the downmix silent.
+    source = make_unknown_layout_wav(tmp_path / "audio.wav", [0.0, 0.0, 0.1, 0.0, 0.0, 0.0])
+
+    result = runner.invoke(app, ["--output-format", "json", "process", str(source)])
+
+    assert result.exit_code == 0, result.stderr
+    output = tmp_path / "audio.phm.mkv"
+    assert ebur128(output, "a:1").integrated > -30
 
 
 def test_process_rejects_empty_directory(tmp_path: Path) -> None:

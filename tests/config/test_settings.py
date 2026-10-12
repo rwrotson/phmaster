@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from phmaster.config import Settings, load_settings
+from phmaster.config import Settings, get_settings, load_settings
 from phmaster.config.settings import env_fields
 
 ENV_EXAMPLE = Path(__file__).parents[2] / ".env.example"
@@ -83,3 +83,9 @@ def test_env_example_documents_every_setting() -> None:
 
 def test_every_setting_has_a_description() -> None:
     assert [name for name, field in env_fields() if not field.description] == []
+
+
+def test_get_settings_is_loaded_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    first = get_settings()
+    monkeypatch.setenv("PHMASTER_CONSOLE__WIDTH", "77")
+    assert get_settings() is first

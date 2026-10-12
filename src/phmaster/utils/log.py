@@ -6,7 +6,7 @@ from typing import TextIO, cast
 
 import structlog
 
-from phmaster.config import LogSettings, load_settings
+from phmaster.config import LogSettings, get_settings
 
 
 class _AppFileHandler(logging.handlers.RotatingFileHandler):
@@ -23,7 +23,7 @@ def setup_logging(config: LogSettings | None = None) -> None:
     If the log file cannot be opened, only console logging is set up and a warning is logged.
     """
     if config is None:
-        config = load_settings().log
+        config = get_settings().log
 
     log_file_path = config.resolved_dir.resolve() / config.file_name
 

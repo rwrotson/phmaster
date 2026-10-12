@@ -169,11 +169,11 @@ Check DSP changes by listening and with independent measurement: `ffmpeg -i out.
 
 ### Configuration via Environment Variables
 
-`src/phmaster/config/settings.py` defines `Settings` (Pydantic `BaseSettings`, prefix `PHMASTER_`, nested delimiter `__`) with defaults in code and the sections `ConsoleSettings` (`PHMASTER_CONSOLE__*`), `LogSettings` (`PHMASTER_LOG__*`), and `ProcessingSettings` (`PHMASTER_PROCESSING__*`: default presets, layout, codec, bitrates, languages, suffix, ffmpeg paths). Config must not import services, so processing choices are `Literal` types there and converted to service enums in the CLI. `load_settings()` reads the environment and `.env`; empty values use defaults. `setup_logging()` and `build_console()` take a section instead of reading the environment themselves.
+`src/phmaster/config/settings.py` defines `Settings` (Pydantic `BaseSettings`, prefix `PHMASTER_`, nested delimiter `__`) with defaults in code and the sections `ConsoleSettings` (`PHMASTER_CONSOLE__*`), `LogSettings` (`PHMASTER_LOG__*`), and `ProcessingSettings` (`PHMASTER_PROCESSING__*`: default presets, layout, codec, bitrates, languages, suffix, ffmpeg paths). Config must not import services, so processing choices are `Literal` types there and converted to service enums in the CLI. `load_settings()` reads the environment and `.env`; empty values use defaults. `get_settings()` caches the first successful load; `main`, the root callback, `get_console()`, and `setup_logging()` without arguments all use it, so the environment is read once per process. `setup_logging()` and `build_console()` take a section instead of reading the environment themselves.
 
 Every setting needs a `Field(description=...)` and a line in `.env.example`; tests in `tests/config/` enforce both. The docs configuration page is generated from `Settings` by `docs/gen_config_page.py`; do not edit it by hand.
 
-`get_console()` and `get_project_meta()` cache their results.
+`get_settings()`, `get_console()`, and `get_project_meta()` cache their results; `tests/conftest.py` clears the settings and console caches around each test.
 
 ### Logging (structlog)
 
@@ -194,12 +194,8 @@ Before `setup_logging()` is called (e.g. in tests), structlog defaults to stderr
 | `src/phmaster/utils/console.py` | Singleton Rich `Console` with theming |
 | `src/phmaster/utils/log.py` | structlog setup; file + console handlers configured from `LogSettings` |
 | `src/phmaster/utils/output.py` | `OutputFormat` enum; `render_output()` and `echo_json()` helpers |
-| `src/phmaster/utils/stdin.py` | `is_stdin_piped()`, `read_stdin_if_piped()`, `iter_stdin_lines()` |
 | `src/phmaster/utils/meta.py` | Reads distribution metadata at runtime; scans `direct_url.json` for editable-install compat |
 | `src/phmaster/utils/format.py` | Rich `Theme` with `info`/`warning`/`danger` styles |
-| `src/phmaster/utils/emoji.py` | `Emoji` StrEnum for consistent emoji usage |
-| `src/phmaster/utils/progress.py` | Rich `Progress` bar wired to the project console |
-| `src/phmaster/utils/misc.py` | `find_project_root()` helper |
 
 ### Testing
 
@@ -207,7 +203,7 @@ Before `setup_logging()` is called (e.g. in tests), structlog defaults to stderr
 
 `tests/mediagen.py` (importable as `mediagen`; `tests` is on mypy's path) generates short media files with ffmpeg's lavfi sources: test video, tone tracks in any layout with an optional burst 20 dB louder, optional subtitles, any container. It also provides `ffprobe_streams()`, `packet_hashes()` (to prove stream copies are bit-identical), and `ebur128()` (independent loudness measurement). DSP unit tests in `tests/services/dsp/` build envelopes directly from (seconds, LUFS) scenes. Keep generated clips a few seconds long to stay within the per-test timeout.
 
-Tests run in parallel (pytest-xdist) and in random order (pytest-randomly); warnings are errors and each test has a 30-second timeout. Autouse fixtures in `tests/conftest.py` remove `PHMASTER_*` variables, run each test in a temporary working directory (so a local `.env` is not read), restore logging and structlog configuration, and clear the cached console. Tests must not depend on process-wide state or on each other. Reproduce an order-dependent failure with `uv run pytest -p randomly --randomly-seed=<seed>` (the seed is printed at the top of the run).
+Tests run in parallel (pytest-xdist) and in random order (pytest-randomly); warnings are errors and each test has a 30-second timeout. Autouse fixtures in `tests/conftest.py` remove `PHMASTER_*` variables, run each test in a temporary working directory (so a local `.env` is not read), restore logging and structlog configuration, and clear the cached settings and console. Tests must not depend on process-wide state or on each other. Reproduce an order-dependent failure with `uv run pytest -p randomly --randomly-seed=<seed>` (the seed is printed at the top of the run).
 
 ### Type Checking
 

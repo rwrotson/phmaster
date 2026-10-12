@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import structlog
 
+from phmaster.config import get_settings
 from phmaster.utils.console import get_console
 
 
@@ -33,10 +34,12 @@ def restore_logging() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def reset_console() -> Iterator[None]:
-    """Build a fresh console for each test from its own environment."""
+def reset_cached_settings() -> Iterator[None]:
+    """Load settings and build the console afresh in each test from its own environment."""
+    get_settings.cache_clear()
     get_console.cache_clear()
     yield
+    get_settings.cache_clear()
     get_console.cache_clear()
 
 

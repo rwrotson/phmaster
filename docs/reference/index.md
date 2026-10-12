@@ -31,8 +31,4 @@ The pages below are generated from public objects in `src/phmaster/`.
 | `phmaster.utils.log` | Configure console and file logging |
 | `phmaster.utils.meta` | Read installed distribution metadata |
 | `phmaster.utils.output` | Render text or JSON command output |
-| `phmaster.utils.stdin` | Read piped stdin |
 | `phmaster.utils.format` | Define the Rich theme |
-| `phmaster.utils.emoji` | Define console emoji |
-| `phmaster.utils.progress` | Create Rich progress bars |
-| `phmaster.utils.misc` | Locate the project root |

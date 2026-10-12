@@ -39,7 +39,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "commitizen>=4.19.2",
-    "emojis>=0.7.0",
     "import-linter>=2.15",
     "mypy>=2.4.0",
     "poethepoet>=0.48.0",
@@ -230,7 +229,7 @@ name = "Services stay independent of the CLI, configuration, and output"
 type = "forbidden"
 source_modules = ["phmaster.services"]
 forbidden_modules = [
-    "typer", "click", "rich", "structlog", "pydantic_settings", "platformdirs",
+    "typer", "click", "rich", "structlog", "pydantic", "pydantic_settings", "platformdirs",
     "phmaster.cli", "phmaster.config", "phmaster.utils",
 ]
 

@@ -46,7 +46,7 @@ CodecOption = Annotated[
     Option(
         "--codec",
         "-c",
-        help="Codec of new tracks; auto is AAC for stereo, E-AC-3 for 5.1.",
+        help="Codec of new tracks; auto is AAC for mono and stereo, E-AC-3 for surround.",
         show_default=False,
     ),
 ]
