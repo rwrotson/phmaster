@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.0 (2026-10-13)
+
 ## v0.1.0 (2026-10-13)
 
 ### Feat
