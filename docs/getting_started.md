@@ -38,6 +38,9 @@ uv run phmaster probe movie.mkv
 uv run phmaster probe movie.mkv --loudness -p night -p medium
 uv run phmaster process movie.mkv --dry-run
 uv run phmaster process movie.mkv -p night --layout both
+
+# Keep an earlier phmaster track when forcing a new version with a different title
+uv run phmaster process movie.mkv --in-place --force --title "Late night"
 ```
 
 ### Global flags

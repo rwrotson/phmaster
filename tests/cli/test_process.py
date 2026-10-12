@@ -54,6 +54,18 @@ def test_process_json_dry_run(tmp_path: Path) -> None:
     assert [t["codec"] for t in entry["tracks"]] == ["flac"]
 
 
+def test_process_title_names_new_track(tmp_path: Path) -> None:
+    source = make_media(tmp_path / "movie.mkv", duration=2)
+
+    result = runner.invoke(
+        app, ["-f", "json", "process", str(source), "--dry-run", "--title", "Late night"]
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)
+    assert data["results"][0]["tracks"][0]["title"] == "Late night · phmaster night (stereo)"
+
+
 def test_process_reports_failures_with_exit_code(tmp_path: Path) -> None:
     good = make_media(tmp_path / "good.mkv", duration=2)
     bad = tmp_path / "bad.mkv"

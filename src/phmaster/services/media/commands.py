@@ -183,8 +183,9 @@ def mux_command(  # noqa: PLR0913 - every argument shapes the ffmpeg command
     *,
     source_audio_count: int,
     set_default: bool,
+    excluded_stream_indices: Sequence[int] = (),
 ) -> list[str]:
-    """Build an ffmpeg command that copies all source streams and appends the new tracks."""
+    """Build a command that copies source streams except exclusions and appends new tracks."""
     command = [tools.ffmpeg, "-nostdin", "-v", "error", "-y"]
     if source.suffix.lower() in _GENPTS_INPUTS:
         command += ["-fflags", "+genpts"]
@@ -192,7 +193,11 @@ def mux_command(  # noqa: PLR0913 - every argument shapes the ffmpeg command
     for track in tracks:
         command += ["-i", str(track.path)]
 
-    maps = ["0", *(f"{number}:a:0" for number in range(1, len(tracks) + 1))]
+    maps = [
+        "0",
+        *(f"-0:{index}" for index in excluded_stream_indices),
+        *(f"{number}:a:0" for number in range(1, len(tracks) + 1)),
+    ]
     for stream in maps:
         command += ["-map", stream]
     command += ["-c", "copy"]

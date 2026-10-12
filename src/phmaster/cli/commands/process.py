@@ -116,6 +116,10 @@ def process(  # noqa: PLR0913 - one parameter per command-line option
     track: TrackOption = None,
     lang: LanguageOption = None,
     center_mix: CenterMixOption = None,
+    title: Annotated[
+        str | None,
+        Option("--title", help="Title for new tracks; keep earlier phmaster tracks with --force."),
+    ] = None,
     recursive: Annotated[
         bool, Option("--recursive", "-r", help="Search directories recursively.")
     ] = False,
@@ -155,6 +159,7 @@ def process(  # noqa: PLR0913 - one parameter per command-line option
         set_default=settings.set_default if set_default is None else set_default,
         force=force,
         dry_run=dry_run,
+        title=title,
     )
     log.debug("processing files", count=len(files), presets=[p.name for p in template.presets])
 

@@ -76,6 +76,7 @@ class Job:
     layout: str
     codec: Codec
     bitrate: str
+    title_base: str | None = None
 
     @property
     def dialog_channel(self) -> bool:
@@ -85,7 +86,12 @@ class Job:
     @property
     def title(self) -> str:
         """Track title shown by players; contains the marker that identifies phmaster tracks."""
-        base = self.track.title or self.track.language or f"Track {self.track.audio_index + 1}"
+        base = (
+            self.title_base
+            or self.track.title
+            or self.track.language
+            or f"Track {self.track.audio_index + 1}"
+        )
         return f"{base} · phmaster {self.preset.name} ({self.layout})"
 
     @property
@@ -136,14 +142,20 @@ def select_tracks(info: MediaInfo, selection: TrackSelection) -> list[AudioTrack
 
 
 def plan_jobs(
-    tracks: Sequence[AudioTrack], presets: Sequence[Preset], output: TrackFormat
+    tracks: Sequence[AudioTrack],
+    presets: Sequence[Preset],
+    output: TrackFormat,
+    *,
+    title_base: str | None = None,
 ) -> list[Job]:
     """Expand tracks into jobs for every requested layout and preset."""
     jobs: list[Job] = []
     for track in tracks:
         for layout in _layouts(track, output.layout):
             codec, bitrate = _codec(layout, output)
-            jobs.extend(Job(track, preset, layout, codec, bitrate) for preset in presets)
+            jobs.extend(
+                Job(track, preset, layout, codec, bitrate, title_base) for preset in presets
+            )
     return jobs
 
 

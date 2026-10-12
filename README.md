@@ -50,7 +50,7 @@ phmaster process movie.avi --in-place
 phmaster process ~/Movies --dry-run
 ```
 
-Files that already contain phmaster tracks, and files whose output exists, are skipped; `--force` processes them anyway. Outputs of earlier runs (`*.phm.*`) are ignored when scanning directories.
+Files that already contain phmaster tracks, and files whose output exists, are skipped; `--force` processes them anyway. With `--force`, new tracks replace earlier phmaster tracks with the same title. Use `--title` to give new tracks a different title and keep the earlier ones. Outputs of earlier runs (`*.phm.*`) are ignored when scanning directories.
 
 ### Options of `process`
 
@@ -65,6 +65,7 @@ Files that already contain phmaster tracks, and files whose output exists, are s
 | `-r, --recursive` | off | Search directories recursively |
 | `--in-place` | off | Replace the source file instead of writing a copy |
 | `--force` | off | Process files with existing phmaster tracks or outputs |
+| `--title` | source title | Base title for new tracks; a different title keeps earlier phmaster tracks with `--force` |
 | `-n, --dry-run` | off | Show the plan without writing files |
 | `--default/--no-default` | `--default` | Mark the first new track as the default audio track |
 

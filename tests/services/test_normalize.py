@@ -7,6 +7,7 @@ from mediagen import AudioSpec, ebur128, ffprobe_streams, make_media, packet_has
 from phmaster.services.dsp.presets import PRESETS, PresetName
 from phmaster.services.errors import FfmpegError
 from phmaster.services.media.commands import Container
+from phmaster.services.media.probe import probe
 from phmaster.services.media.tools import Tools, find_tools
 from phmaster.services.normalize import NormalizeRequest, normalize_file, output_path
 from phmaster.services.pipeline import CodecChoice, Layout, TrackFormat, TrackSelection
@@ -112,6 +113,43 @@ def test_skips_existing_output_unless_forced(tools: Tools, tmp_path: Path) -> No
     assert forced.output == first.output
     assert forced.skipped is None
     assert len(audio_streams(forced.output)) == 2
+
+
+def test_force_replaces_only_matching_generated_tracks(tools: Tools, tmp_path: Path) -> None:
+    source = make_media(tmp_path / "movie.mkv", duration=2)
+    normalize_file(tools, NormalizeRequest(source=source, presets=(NIGHT,), in_place=True))
+
+    normalize_file(
+        tools, NormalizeRequest(source=source, presets=(LIGHT,), in_place=True, force=True)
+    )
+    assert len(probe(tools, source).audio_tracks) == 3
+
+    normalize_file(
+        tools,
+        NormalizeRequest(
+            source=source,
+            presets=(NIGHT,),
+            track_format=TrackFormat(codec=CodecChoice.flac),
+            in_place=True,
+            force=True,
+        ),
+    )
+    tracks = probe(tools, source).audio_tracks
+    assert len(tracks) == 3
+    assert (
+        next(track for track in tracks if "phmaster night" in (track.title or "")).codec == "flac"
+    )
+    assert any("phmaster light" in (track.title or "") for track in tracks)
+
+    normalize_file(
+        tools,
+        NormalizeRequest(
+            source=source, presets=(NIGHT,), in_place=True, force=True, title="Late night"
+        ),
+    )
+    tracks = probe(tools, source).audio_tracks
+    assert len(tracks) == 4
+    assert any("Late night · phmaster night" in (track.title or "") for track in tracks)
 
 
 def test_dry_run_writes_nothing(tools: Tools, tmp_path: Path) -> None:

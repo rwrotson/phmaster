@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from phmaster.services.dsp.presets import Preset
+from phmaster.services.errors import InvalidInputError
 from phmaster.services.media.commands import Container, NewTrack, choose_container, mux_command
 from phmaster.services.media.probe import MediaInfo, probe
 from phmaster.services.media.tools import Tools, run_tool
@@ -33,6 +34,7 @@ class NormalizeRequest:
     set_default: bool = True
     force: bool = False
     dry_run: bool = False
+    title: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,9 +74,16 @@ def normalize_file(
     tools: Tools, request: NormalizeRequest, progress: ProgressSink | None = None
 ) -> NormalizeResult:
     """Add normalized tracks to a copy of a media file, or to the file itself in place."""
+    if request.title is not None and not request.title.strip():
+        raise InvalidInputError("track title must not be empty")
     sink = progress or NullProgress()
     info = probe(tools, request.source)
-    jobs = plan_jobs(select_tracks(info, request.selection), request.presets, request.track_format)
+    jobs = plan_jobs(
+        select_tracks(info, request.selection),
+        request.presets,
+        request.track_format,
+        title_base=request.title,
+    )
     container = choose_container(request.source, (job.codec for job in jobs))
     output = output_path(request.source, container, request.suffix, in_place=request.in_place)
 
@@ -85,6 +94,16 @@ def normalize_file(
             request.source, output, tracks, skipped=skipped, dry_run=request.dry_run
         )
 
+    titles = {job.title for job in jobs}
+    replaced = (
+        tuple(
+            track.stream_index
+            for track in info.audio_tracks
+            if track.is_generated and track.title in titles
+        )
+        if request.force
+        else ()
+    )
     with tempfile.TemporaryDirectory(prefix=".phmaster-", dir=output.parent) as workdir:
         work = Path(workdir)
         new_tracks: list[NewTrack] = []
@@ -117,8 +136,9 @@ def normalize_file(
                 new_tracks,
                 muxed,
                 container,
-                source_audio_count=len(info.audio_tracks),
+                source_audio_count=len(info.audio_tracks) - len(replaced),
                 set_default=request.set_default,
+                excluded_stream_indices=replaced,
             )
         )
         os.replace(muxed, output)
