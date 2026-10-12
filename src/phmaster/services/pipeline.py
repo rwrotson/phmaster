@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -247,13 +247,27 @@ def plan_all(
     output: TrackFormat,
     progress: ProgressSink,
 ) -> list[tuple[Job, LoudnessEnvelope, GainPlan]]:
-    """Measure each (track, layout) pair once and plan the gain of every job."""
+    """Return all measured jobs and gain plans as a list."""
+    return list(iter_plans(tools, source, jobs, output, progress))
+
+
+def iter_plans(
+    tools: Tools,
+    source: Path,
+    jobs: Sequence[Job],
+    output: TrackFormat,
+    progress: ProgressSink,
+) -> Iterator[tuple[Job, LoudnessEnvelope, GainPlan]]:
+    """Yield plans in job order, measuring each (track, layout) pair once."""
+    last_use = {(job.track.audio_index, job.layout): index for index, job in enumerate(jobs)}
     envelopes: dict[tuple[int, str], LoudnessEnvelope] = {}
-    planned: list[tuple[Job, LoudnessEnvelope, GainPlan]] = []
-    for job in jobs:
+    for index, job in enumerate(jobs):
         key = (job.track.audio_index, job.layout)
         if key not in envelopes:
             envelopes[key] = measure(tools, source, job, output, progress)
         envelope = envelopes[key]
-        planned.append((job, envelope, plan_gain(envelope, job.preset)))
-    return planned
+        plan = plan_gain(envelope, job.preset)
+        yield job, envelope, plan
+        if index == last_use[key]:
+            del envelopes[key]
+        del envelope, plan

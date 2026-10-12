@@ -1,18 +1,29 @@
+import gc
+import weakref
 from dataclasses import replace
 from pathlib import Path
 
+import numpy as np
 import pytest
 
-from phmaster.services.dsp.presets import PRESETS, PresetName
+import phmaster.services.pipeline as pipeline_module
+from phmaster.services.dsp.gain import GainPlan
+from phmaster.services.dsp.loudness import LoudnessEnvelope
+from phmaster.services.dsp.presets import PRESETS, Preset, PresetName
 from phmaster.services.errors import InvalidInputError, MediaError
 from phmaster.services.media.commands import Codec
 from phmaster.services.media.probe import AudioTrack, MediaInfo
+from phmaster.services.media.tools import Tools
 from phmaster.services.pipeline import (
     CodecChoice,
+    Job,
     Layout,
     NullProgress,
+    ProgressSink,
     TrackFormat,
     TrackSelection,
+    iter_plans,
+    plan_all,
     plan_jobs,
     select_tracks,
 )
@@ -132,3 +143,68 @@ def test_null_progress_accepts_updates() -> None:
     progress = NullProgress()
     progress.stage("step", 1.0)
     progress.advance(1.0)
+
+
+def test_iter_plans_is_lazy_and_releases_finished_pair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    measured: list[tuple[int, str]] = []
+
+    def fake_measure(
+        tools: Tools, source: Path, job: Job, output: TrackFormat, progress: ProgressSink
+    ) -> LoudnessEnvelope:
+        measured.append((job.track.audio_index, job.layout))
+        return LoudnessEnvelope(program=np.ones(4), dialog=None, peak=0.0)
+
+    def fake_plan_gain(envelope: LoudnessEnvelope, preset: Preset) -> GainPlan:
+        return GainPlan(gain=np.ones(4), reference=None, static_gain=0.0)
+
+    monkeypatch.setattr(pipeline_module, "measure", fake_measure)
+    monkeypatch.setattr(pipeline_module, "plan_gain", fake_plan_gain)
+    jobs = plan_jobs([track(0), track(1)], [NIGHT, LIGHT], TrackFormat())
+    planned = iter_plans(
+        Tools("ffmpeg", "ffprobe"), Path("movie.mkv"), jobs, TrackFormat(), NullProgress()
+    )
+    assert measured == []
+
+    first = next(planned)
+    first_program = weakref.ref(first[1].program)
+    first_gain = weakref.ref(first[2].gain)
+    assert measured == [(0, "stereo")]
+    del first
+
+    second = next(planned)
+    assert second[0].preset == LIGHT
+    assert measured == [(0, "stereo")]
+    assert first_gain() is None
+    del second
+
+    third = next(planned)
+    gc.collect()
+    assert measured == [(0, "stereo"), (1, "stereo")]
+    assert first_program() is None
+    assert third[0].track.audio_index == 1
+
+
+def test_plan_all_keeps_list_result_and_reuses_interleaved_measurement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    measured: list[int] = []
+
+    def fake_measure(
+        tools: Tools, source: Path, job: Job, output: TrackFormat, progress: ProgressSink
+    ) -> LoudnessEnvelope:
+        measured.append(job.track.audio_index)
+        return LoudnessEnvelope(program=np.ones(4), dialog=None, peak=0.0)
+
+    monkeypatch.setattr(pipeline_module, "measure", fake_measure)
+    jobs = plan_jobs([track(0), track(1)], [NIGHT, LIGHT], TrackFormat())
+    jobs = [jobs[0], jobs[2], jobs[1], jobs[3]]
+
+    planned = plan_all(
+        Tools("ffmpeg", "ffprobe"), Path("movie.mkv"), jobs, TrackFormat(), NullProgress()
+    )
+
+    assert isinstance(planned, list)
+    assert [job for job, _, _ in planned] == jobs
+    assert measured == [0, 1]

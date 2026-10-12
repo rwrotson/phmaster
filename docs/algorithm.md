@@ -9,7 +9,7 @@ pass 2   ffmpeg decode → PCM × gain → ffmpeg: 4× oversampled true-peak lim
 mux      ffmpeg -c copy: all source streams + new tracks (fails if the output container rejects a stream)
 ```
 
-Memory does not depend on the length of the film: audio is streamed in one-second chunks, and the envelope of a two-hour film is a few megabytes.
+Audio is streamed in one-second chunks. The envelope and gain curve grow with the track length, but processing one track and layout at a time avoids retaining plans for all output tracks.
 
 ## Decoding and downmix
 

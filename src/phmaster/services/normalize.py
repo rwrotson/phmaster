@@ -20,7 +20,7 @@ from phmaster.services.pipeline import (
     ProgressSink,
     TrackFormat,
     TrackSelection,
-    plan_all,
+    iter_plans,
     plan_jobs,
     render,
     select_tracks,
@@ -115,8 +115,8 @@ def normalize_file(
         work = Path(workdir)
         new_tracks: list[NewTrack] = []
         generated: list[GeneratedTrack] = []
-        for number, (job, _, plan) in enumerate(
-            plan_all(tools, request.source, jobs, request.track_format, sink)
+        for number, (job, envelope, plan) in enumerate(
+            iter_plans(tools, request.source, jobs, request.track_format, sink)
         ):
             path = work / f"track{number}.mka"
             render(
@@ -134,6 +134,7 @@ def normalize_file(
             generated.append(
                 _generated(job, plan.reference, plan.static_gain, plan.min_gain, plan.max_gain)
             )
+            del envelope, plan
         sink.stage(f"Writing {output.name}", None)
         muxed = work / f"output{container.extension}"
         run_tool(

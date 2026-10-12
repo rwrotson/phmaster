@@ -12,7 +12,7 @@ from phmaster.services.pipeline import (
     ProgressSink,
     TrackFormat,
     TrackSelection,
-    plan_all,
+    iter_plans,
     plan_jobs,
     select_tracks,
 )
@@ -63,9 +63,10 @@ def analyze_file(  # noqa: PLR0913 - mirrors the options of the process command
     """Measure the selected tracks and estimate the gain each preset would apply."""
     info = probe(tools, path)
     jobs = plan_jobs(select_tracks(info, selection), presets, track_format)
-    planned = plan_all(tools, path, jobs, track_format, progress or NullProgress())
     reports: dict[tuple[int, str], TrackReport] = {}
-    for job, envelope, plan in planned:
+    for job, envelope, plan in iter_plans(
+        tools, path, jobs, track_format, progress or NullProgress()
+    ):
         key = (job.track.audio_index, job.layout)
         report = reports.get(key) or TrackReport(
             audio_index=job.track.audio_index,
@@ -78,4 +79,5 @@ def analyze_file(  # noqa: PLR0913 - mirrors the options of the process command
         )
         estimate = PresetEstimate(job.preset.name, plan.static_gain, plan.min_gain, plan.max_gain)
         reports[key] = replace(report, estimates=(*report.estimates, estimate))
+        del envelope, plan
     return AnalysisResult(info=info, reports=tuple(reports.values()))
