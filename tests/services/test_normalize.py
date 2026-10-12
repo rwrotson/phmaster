@@ -8,7 +8,7 @@ from phmaster.services.dsp.presets import PRESETS, PresetName
 from phmaster.services.errors import FfmpegError
 from phmaster.services.media.commands import Container
 from phmaster.services.media.probe import probe
-from phmaster.services.media.tools import Tools, find_tools
+from phmaster.services.media.tools import Tools, find_tools, run_tool
 from phmaster.services.normalize import NormalizeRequest, normalize_file, output_path
 from phmaster.services.pipeline import CodecChoice, Layout, TrackFormat, TrackSelection
 
@@ -189,6 +189,38 @@ def test_in_place_does_not_overwrite_another_file(tools: Tools, tmp_path: Path) 
 
     assert result.skipped == "output exists: old.mkv"
     assert (tmp_path / "old.mkv").read_bytes() == b"keep me"
+
+
+@pytest.mark.parametrize(
+    "case",
+    [("movie.mkv", "movie.phm.mkv", False), ("old.avi", "old.mkv", True)],
+)
+def test_output_created_during_mux_is_preserved(
+    tools: Tools,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case: tuple[str, str, bool],
+) -> None:
+    name, output_name, in_place = case
+    source = make_media(
+        tmp_path / name, [AudioSpec(codec="mp3" if in_place else "aac")], duration=2
+    )
+    output = tmp_path / output_name
+
+    def create_competing_output(command: list[str]) -> str:
+        result = run_tool(command)
+        output.write_bytes(b"other process")
+        return result
+
+    monkeypatch.setattr(normalize_module, "run_tool", create_competing_output)
+    result = normalize_file(
+        tools, NormalizeRequest(source=source, presets=(NIGHT,), in_place=in_place)
+    )
+
+    assert result.skipped == f"output exists: {output_name}"
+    assert output.read_bytes() == b"other process"
+    assert source.is_file()
+    assert not list(tmp_path.glob(".phmaster-*"))
 
 
 def test_failed_mux_leaves_no_files(

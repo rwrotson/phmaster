@@ -141,7 +141,18 @@ def normalize_file(
                 excluded_stream_indices=replaced,
             )
         )
-        os.replace(muxed, output)
+        if request.force or output == request.source:
+            os.replace(muxed, output)
+        else:
+            try:
+                os.link(muxed, output)
+            except FileExistsError:
+                return NormalizeResult(
+                    request.source,
+                    output,
+                    tuple(generated),
+                    skipped=f"output exists: {output.name}",
+                )
     if request.in_place and output != request.source:
         request.source.unlink()
     return NormalizeResult(request.source, output, tuple(generated))

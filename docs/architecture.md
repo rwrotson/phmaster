@@ -29,7 +29,7 @@ import-linter checks these boundaries with `uv run poe lint-imports`; the contra
 | `services/batch.py` | Discover video files and process them, collecting failures |
 | `services/analyze.py` | Measure tracks and estimate preset gains without writing |
 
-`normalize_file()` probes the source, selects tracks, and expands them into jobs (track × layout × preset). Each (track, layout) pair is measured once and every preset is planned from that envelope. Each job is rendered into a temporary `.mka` in a `.phmaster-*` directory next to the output; the mux step writes a temporary output in the same directory and moves it into place with `os.replace`, so an interrupted run leaves the source and any earlier output intact.
+`normalize_file()` probes the source, selects tracks, and expands them into jobs (track × layout × preset). Each (track, layout) pair is measured once and every preset is planned from that envelope. Each job is rendered into a temporary `.mka` in a `.phmaster-*` directory next to the output. The mux step writes a temporary output there. Without `--force`, a new output path is published with an atomic hard link that fails if another process created it; `--force` and replacement of the source use `os.replace`.
 
 Services report progress through the `ProgressSink` protocol; the CLI implements it with a Rich progress bar on stderr.
 
