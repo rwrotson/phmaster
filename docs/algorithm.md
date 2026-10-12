@@ -6,7 +6,7 @@ phmaster renders each new track in two passes over the decoded audio. The first 
 pass 1   ffmpeg decode → f32 PCM 48 kHz → K-weighting → block power (10 ms)
 plan     reference level → slow gain + compressor → lookahead and release smoothing
 pass 2   ffmpeg decode → PCM × gain → ffmpeg: 4× oversampled true-peak limiter → encoder
-mux      ffmpeg -c copy: all source streams + new tracks
+mux      ffmpeg -c copy: all source streams + new tracks (fails if the output container rejects a stream)
 ```
 
 Memory does not depend on the length of the film: audio is streamed in one-second chunks, and the envelope of a two-hour film is a few megabytes.

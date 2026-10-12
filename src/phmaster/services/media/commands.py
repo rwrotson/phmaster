@@ -192,10 +192,7 @@ def mux_command(  # noqa: PLR0913 - every argument shapes the ffmpeg command
     for track in tracks:
         command += ["-i", str(track.path)]
 
-    maps = ["0:v?", "0:a?", "0:s?"]
-    if container.is_matroska:
-        maps.append("0:t?")
-    maps += [f"{number}:a:0" for number in range(1, len(tracks) + 1)]
+    maps = ["0", *(f"{number}:a:0" for number in range(1, len(tracks) + 1))]
     for stream in maps:
         command += ["-map", stream]
     command += ["-c", "copy"]
@@ -207,5 +204,7 @@ def mux_command(  # noqa: PLR0913 - every argument shapes the ffmpeg command
         if container.is_matroska:
             command += [f"-metadata:{selector}", f"PHMASTER={track.tag}"]
     if set_default and tracks:
-        command += ["-disposition:a", "0", f"-disposition:a:{source_audio_count}", "default"]
+        for index in range(source_audio_count):
+            command += [f"-disposition:a:{index}", "-default"]
+        command += [f"-disposition:a:{source_audio_count}", "+default"]
     return [*command, "-f", container.muxer, str(output)]

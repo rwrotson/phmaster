@@ -2,7 +2,7 @@
 
 Watch films at night without waking the neighbours. `phmaster` adds loudness-normalized audio tracks to video files: explosions are tamed, whispers are raised, and the level stays smooth, without pumping, sudden dips, or peaks slipping through. The original tracks are kept, so you can switch back at any time.
 
-- Works with any container and codec ffmpeg can read; new tracks are appended by stream copy, so video, subtitles, and attachments stay bit-identical
+- Works with containers and codecs ffmpeg can read; all source streams are copied when the output container supports them, preserving video, subtitles, and attachments bit-identically
 - Plans the gain over the whole track before rendering, so the level eases down just before a loud moment instead of reacting after it
 - Measures loudness per ITU-R BS.1770 and anchors it to the dialogue level, using the center channel when there is one
 - Presets `light`, `medium`, and `night`; generate several in one run

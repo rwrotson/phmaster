@@ -166,6 +166,52 @@ def test_mux_appends_tracks_and_copies_source(
     assert packet_hashes(output, "0:a:0") == packet_hashes(source, "0:a:0")
 
 
+def test_mux_preserves_source_audio_dispositions(tools: Tools, tmp_path: Path) -> None:
+    original = make_media(tmp_path / "original.mkv", duration=1)
+    source = tmp_path / "source.mkv"
+    run_tool(
+        [
+            tools.ffmpeg,
+            "-v",
+            "error",
+            "-i",
+            str(original),
+            "-map",
+            "0",
+            "-c",
+            "copy",
+            "-disposition:a:0",
+            "default+forced",
+            str(source),
+        ]
+    )
+    track = _encode(
+        tools, tmp_path / "new.mka", "stereo", Codec.aac, np.zeros((9600, 2), np.float32)
+    )
+    output = tmp_path / "out.mkv"
+    new = NewTrack(path=track, title="phmaster night", language=None, tag="night")
+
+    run_tool(
+        mux_command(
+            tools,
+            source,
+            [new],
+            output,
+            Container(".mkv", "matroska"),
+            source_audio_count=1,
+            set_default=True,
+        )
+    )
+
+    audio = [stream for stream in ffprobe_streams(output) if stream["codec_type"] == "audio"]
+    assert [
+        (stream["disposition"]["default"], stream["disposition"]["forced"]) for stream in audio
+    ] == [
+        (0, 1),
+        (1, 0),
+    ]
+
+
 def test_mux_command_options(tools: Tools) -> None:
     tracks = [
         NewTrack(path=Path("1.mka"), title="t1", language=None, tag="night"),
@@ -181,7 +227,8 @@ def test_mux_command_options(tools: Tools) -> None:
         set_default=False,
     )
     assert command[command.index("-fflags") + 1] == "+genpts"
-    assert "0:t?" not in command
+    assert command.count("-map") == 3
+    assert command[command.index("-map") + 1] == "0"
     assert "-disposition:a" not in command
     assert command[command.index("-metadata:s:a:3") + 1] == "title=t1"
     assert "language=und" in command
