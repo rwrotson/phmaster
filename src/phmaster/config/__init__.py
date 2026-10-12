@@ -1,3 +1,3 @@
-from .settings import ConsoleSettings, LogSettings, Settings, load_settings
+from .settings import ConsoleSettings, LogSettings, ProcessingSettings, Settings, load_settings
 
-__all__ = ["ConsoleSettings", "LogSettings", "Settings", "load_settings"]
+__all__ = ["ConsoleSettings", "LogSettings", "ProcessingSettings", "Settings", "load_settings"]

@@ -8,6 +8,9 @@ from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+PresetChoice = Literal["light", "medium", "night"]
+LayoutChoice = Literal["stereo", "keep", "both"]
+CodecSetting = Literal["auto", "aac", "eac3", "ac3", "opus", "flac"]
 
 
 class ConsoleSettings(BaseModel):
@@ -58,6 +61,43 @@ class LogSettings(BaseModel):
         return self.dir if self.dir is not None else user_log_path("phmaster")
 
 
+class ProcessingSettings(BaseModel):
+    """Defaults of the process and probe commands."""
+
+    presets: list[PresetChoice] = Field(
+        default_factory=lambda: list[PresetChoice](["night"]),
+        min_length=1,
+        description="Presets to generate, as a JSON list; one track per preset",
+    )
+    layout: LayoutChoice = Field(
+        default="stereo",
+        description="`stereo` downmix, `keep` the source layout (up to 5.1), or `both`",
+    )
+    codec: CodecSetting = Field(
+        default="auto", description="Codec of new tracks; `auto` is AAC for stereo, E-AC-3 for 5.1"
+    )
+    stereo_bitrate: str = Field(default="256k", description="Bitrate of mono and stereo tracks")
+    surround_bitrate: str = Field(default="640k", description="Bitrate of surround tracks")
+    center_mix_db: float = Field(
+        default=0.0,
+        ge=-12.0,
+        le=12.0,
+        description="Center (dialogue) level in stereo downmixes; the ITU default is -3",
+    )
+    languages: list[str] = Field(
+        default_factory=list,
+        description="Process only tracks in these languages, as a JSON list; empty means all",
+    )
+    suffix: str = Field(
+        default=".phm", min_length=1, description="Inserted before the extension of output files"
+    )
+    set_default: bool = Field(
+        default=True, description="Mark the first new track as the default audio track"
+    )
+    ffmpeg: str = Field(default="ffmpeg", description="ffmpeg executable name or path")
+    ffprobe: str = Field(default="ffprobe", description="ffprobe executable name or path")
+
+
 class Settings(BaseSettings):
     """Load application settings from PHMASTER_* variables and .env."""
 
@@ -71,6 +111,7 @@ class Settings(BaseSettings):
 
     console: ConsoleSettings = Field(default_factory=ConsoleSettings)
     log: LogSettings = Field(default_factory=LogSettings)
+    processing: ProcessingSettings = Field(default_factory=ProcessingSettings)
 
 
 def nested_model(field: FieldInfo) -> type[BaseModel] | None:

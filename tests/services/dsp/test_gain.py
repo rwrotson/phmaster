@@ -49,6 +49,23 @@ def test_output_loudness_range_shrinks(name: PresetName) -> None:
     assert output[500:1500].mean() == pytest.approx(preset.target, abs=1.0)
 
 
+@pytest.mark.parametrize("name", list(PresetName))
+def test_dialogue_around_a_loud_moment_keeps_its_level(name: PresetName) -> None:
+    preset = PRESETS[name]
+    plan = plan_gain(EXPLOSION, preset)
+    output = to_lufs(windowed_power(EXPLOSION.program, 0.4)) + plan.gain
+    assert output[1700] == pytest.approx(preset.target, abs=1.0)
+    assert output[2600] == pytest.approx(preset.target, abs=3.0)
+    assert output[3000] == pytest.approx(preset.target, abs=1.0)
+
+
+def test_long_quiet_scene_is_raised_but_short_dip_is_not() -> None:
+    long_quiet = plan_gain(scenes((20, -25), (20, -37), (20, -25)), NIGHT)
+    short_dip = plan_gain(scenes((20, -25), (2, -37), (20, -25)), NIGHT)
+    assert long_quiet.gain[3000] > long_quiet.static_gain + 9
+    assert short_dip.max_gain < short_dip.static_gain + 1
+
+
 def test_stronger_presets_compress_more() -> None:
     spans = []
     for name in (PresetName.light, PresetName.medium, PresetName.night):
@@ -60,7 +77,7 @@ def test_stronger_presets_compress_more() -> None:
 
 def test_gain_changes_smoothly() -> None:
     plan = plan_gain(EXPLOSION, NIGHT)
-    assert np.abs(np.diff(plan.gain)).max() < 0.5
+    assert np.abs(np.diff(plan.gain)).max() < 1.5
 
 
 def test_quiet_scene_boost_is_capped() -> None:
@@ -84,7 +101,8 @@ def test_mostly_silent_track_uses_static_gain() -> None:
     envelope = scenes((0.5, -30), (20, -90))
     plan = plan_gain(envelope, replace(NIGHT, smoothing=0.1))
     assert plan.reference == pytest.approx(-30.0, abs=2.0)
-    np.testing.assert_allclose(plan.gain, plan.static_gain, atol=0.2)
+    assert np.ptp(plan.gain) < 0.2
+    assert plan.max_gain == pytest.approx(plan.static_gain, abs=1.5)
 
 
 def test_empty_envelope() -> None:

@@ -11,6 +11,7 @@ from phmaster.services.dsp.loudness import (
     loudness_range,
     reference_loudness,
     to_lufs,
+    typical_level,
     windowed_power,
 )
 
@@ -137,3 +138,18 @@ def test_reference_falls_back_when_dialogue_blocks_are_silent_in_program() -> No
     dialog = np.concatenate([np.full(1500, power_of(-30)), np.full(1500, power_of(-80))])
     envelope = LoudnessEnvelope(program=program, dialog=dialog, peak=0.0)
     assert reference_loudness(envelope) == pytest.approx(-25.0, abs=0.05)
+
+
+def test_reference_ignores_scenes_far_louder_than_dialogue() -> None:
+    program = np.concatenate([np.full(2000, power_of(-31)), np.full(300, power_of(-8))])
+    dialog = np.concatenate([np.full(2000, power_of(-35)), np.full(300, power_of(-12))])
+    assert reference_loudness(
+        LoudnessEnvelope(program=program, dialog=None, peak=0.0)
+    ) == pytest.approx(-31.0, abs=0.1)
+    assert reference_loudness(
+        LoudnessEnvelope(program=program, dialog=dialog, peak=0.0)
+    ) == pytest.approx(-31.0, abs=0.1)
+
+
+def test_typical_level_of_silence_is_none() -> None:
+    assert typical_level(np.zeros(10)) is None

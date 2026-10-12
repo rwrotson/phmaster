@@ -6,9 +6,9 @@ from phmaster.config import ConsoleSettings, load_settings
 from phmaster.utils.format import get_theme
 
 
-def build_console(settings: ConsoleSettings) -> Console:
-    """Create a themed Rich console from console settings."""
-    return Console(theme=get_theme(), **settings.model_dump())
+def build_console(settings: ConsoleSettings, *, stderr: bool = False) -> Console:
+    """Create a themed Rich console from console settings, writing to stdout or stderr."""
+    return Console(theme=get_theme(), stderr=stderr, **settings.model_dump())
 
 
 @cache

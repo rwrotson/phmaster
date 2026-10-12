@@ -28,3 +28,7 @@ def test_get_console_is_cached() -> None:
 def test_get_console_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PHMASTER_CONSOLE__WIDTH", "77")
     assert get_console().width == 77
+
+
+def test_build_console_can_write_to_stderr() -> None:
+    assert build_console(ConsoleSettings(), stderr=True).stderr

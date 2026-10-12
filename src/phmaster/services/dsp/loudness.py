@@ -20,6 +20,7 @@ GATING_HOP_SECONDS = 0.1
 # Fraction of gating blocks with active dialogue needed to trust a dialogue-gated reference.
 MIN_DIALOG_FRACTION = 0.1
 DIALOG_WINDOW = 10.0
+DIALOG_PERCENTILE = 80.0
 _POWER_FLOOR = 1e-12
 
 # ITU-R BS.1770-4 K-weighting at 48 kHz: high-shelf pre-filter, then RLB high-pass.
@@ -160,24 +161,40 @@ def loudness_range(power: Signal) -> float:
     return float(high - low)
 
 
+def typical_level(blocks: Signal, percentile: float = 50.0) -> float | None:
+    """Return a percentile (the median by default) of non-silent block loudness in LUFS.
+
+    Blocks below the absolute gate, and blocks 20 LU below their median, are ignored, so
+    near-silence does not pull the level down and loud scenes cannot gate out quiet ones.
+    None means silence.
+    """
+    loudness = to_lufs(blocks)
+    gated = loudness[loudness > ABSOLUTE_GATE]
+    if not len(gated):
+        return None
+    gated = gated[gated > np.median(gated) + LRA_RELATIVE_GATE]
+    return float(np.percentile(gated, percentile))
+
+
 def reference_loudness(envelope: LoudnessEnvelope) -> float | None:
     """Return the typical program loudness while dialogue is active, in LUFS.
 
-    The typical level is the median momentary loudness of gated blocks, so short loud scenes
-    barely move it. Dialogue is active where the dialogue channel is within 10 LU of its own
-    integrated loudness; without enough such blocks all gated blocks are used. None means
+    Dialogue is active where the dialogue channel is within 10 LU of its speech level, the
+    80th percentile of its loudness, since speech is louder than the pauses between lines;
+    without enough such blocks the typical level of the whole program is used. None means
     silence.
     """
-    program = to_lufs(_gating_blocks(envelope.program, MOMENTARY_SECONDS))
-    integrated = integrated_loudness(envelope.program)
-    if integrated is None:
+    program = _gating_blocks(envelope.program, MOMENTARY_SECONDS)
+    overall = typical_level(program)
+    if overall is None:
         return None
-    gated = (program > ABSOLUTE_GATE) & (program > integrated + LRA_RELATIVE_GATE)
     if envelope.dialog is not None:
-        dialog_level = integrated_loudness(envelope.dialog)
+        dialog = _gating_blocks(envelope.dialog, MOMENTARY_SECONDS)
+        dialog_level = typical_level(dialog, DIALOG_PERCENTILE)
         if dialog_level is not None:
-            dialog = to_lufs(_gating_blocks(envelope.dialog, MOMENTARY_SECONDS))
-            active = gated & (dialog > dialog_level - DIALOG_WINDOW)
+            program_lufs = to_lufs(program)
+            gated = program_lufs > overall + LRA_RELATIVE_GATE
+            active = gated & (to_lufs(dialog) > dialog_level - DIALOG_WINDOW)
             if active.sum() >= MIN_DIALOG_FRACTION * gated.sum():
-                return float(np.median(program[active]))
-    return float(np.median(program[gated]))
+                return float(np.median(program_lufs[active]))
+    return overall

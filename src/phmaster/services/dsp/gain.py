@@ -2,13 +2,12 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import gaussian_filter1d, maximum_filter1d, minimum_filter1d, uniform_filter1d
+from scipy.ndimage import gaussian_filter1d, maximum_filter1d, median_filter, minimum_filter1d
 
 from phmaster.services.dsp.loudness import (
     BLOCK_SECONDS,
     BLOCK_SIZE,
     MOMENTARY_SECONDS,
-    SHORT_TERM_SECONDS,
     LoudnessEnvelope,
     Signal,
     reference_loudness,
@@ -21,9 +20,11 @@ from phmaster.services.dsp.presets import Preset
 # gain instead of being raised, so room tone and noise floors are not pumped up.
 SILENCE_FLOOR = -60.0
 SILENCE_RELATIVE = -35.0
-# Quieter passages are raised only when they last longer than this, so fades and short
-# pauses keep the gain of the scene around them.
-BOOST_HOLD_SECONDS = 4.0
+# The slow gain follows the median scene level over this window, so it reacts only to level
+# changes lasting longer than half of it; shorter loud moments are left to the compressor,
+# and shorter fades and pauses keep the gain of the scene around them.
+SUSTAIN_SECONDS = 8.0
+SUSTAIN_STEP = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,35 +60,43 @@ def plan_gain(envelope: LoudnessEnvelope, preset: Preset) -> GainPlan:
 
 
 def _slow_gain(power: Signal, reference: float, static_gain: float, preset: Preset) -> Signal:
-    short_term = _bridge_silence(power, reference)
-    if short_term is None:
+    momentary = _bridge_silence(power, reference)
+    if momentary is None:
         return np.full(len(power), static_gain)
-    held = maximum_filter1d(short_term, round(BOOST_HOLD_SECONDS / BLOCK_SECONDS), mode="nearest")
-    deviation = np.clip(preset.strength * (reference - held), -preset.max_cut, preset.max_boost)
+    level = _sustained_level(momentary)
+    deviation = np.clip(preset.strength * (reference - level), -preset.max_cut, preset.max_boost)
     sigma = preset.smoothing / BLOCK_SECONDS
     return np.asarray(
         gaussian_filter1d(static_gain + deviation, sigma, mode="nearest"), dtype=np.float64
     )
 
 
-def _bridge_silence(power: Signal, reference: float) -> Signal | None:
-    """Return short-term loudness with silent stretches interpolated from their neighbours.
+def _sustained_level(loudness: Signal) -> Signal:
+    """Return the running median of loudness, computed on a 100 ms grid."""
+    index = np.arange(len(loudness))
+    coarse = index[::SUSTAIN_STEP]
+    size = round(SUSTAIN_SECONDS / (BLOCK_SECONDS * SUSTAIN_STEP)) | 1
+    median = median_filter(loudness[coarse], size=size, mode="nearest")
+    return np.asarray(np.interp(index, coarse, median), dtype=np.float64)
 
-    Silence is detected on momentary loudness and widened by half the short-term window, so
-    windows that only partly cover silence do not look like quiet scenes. None means the whole
-    track is silent.
+
+def _bridge_silence(power: Signal, reference: float) -> Signal | None:
+    """Return momentary loudness with silent stretches interpolated from their neighbours.
+
+    None means the whole track is silent.
     """
     momentary = to_lufs(windowed_power(power, MOMENTARY_SECONDS))
     silent = momentary < max(SILENCE_FLOOR, reference + SILENCE_RELATIVE)
-    margin = round(SHORT_TERM_SECONDS / BLOCK_SECONDS) | 1
+    # A block only reads as silent once its window is almost entirely silent, so widen by a
+    # whole window on each side to also bridge blocks whose window touches the silence.
+    margin = 2 * round(MOMENTARY_SECONDS / BLOCK_SECONDS) + 1
     silent = maximum_filter1d(silent, margin, mode="nearest")
     if silent.all():
         return None
-    short_term = to_lufs(windowed_power(power, SHORT_TERM_SECONDS))
     if silent.any():
         index = np.arange(len(power))
-        short_term[silent] = np.interp(index[silent], index[~silent], short_term[~silent])
-    return short_term
+        momentary[silent] = np.interp(index[silent], index[~silent], momentary[~silent])
+    return momentary
 
 
 def _compression(power: Signal, slow: Signal, preset: Preset) -> Signal:
@@ -105,16 +114,23 @@ def _compression(power: Signal, slow: Signal, preset: Preset) -> Signal:
 
 
 def _lookahead_smooth(gain: Signal, lookahead: float) -> Signal:
-    """Lower the gain ahead of every dip so that smoothing never overshoots it.
+    """Reach every dip `lookahead` seconds early and ease into it, without overshooting.
 
-    A minimum over a centered window followed by a moving average of the same width keeps
-    every value at or below the original curve at the dip itself.
+    A forward minimum holds each dip over the preceding lookahead window; a one-pole filter run
+    backwards in time then lowers the gain gradually before it. Both steps only lower the
+    curve, so the gain at a dip never exceeds what the dip needs.
     """
     if len(gain) == 0:
         return gain
-    size = 2 * max(1, round(lookahead / BLOCK_SECONDS)) + 1
-    floor = minimum_filter1d(gain, size, mode="nearest")
-    return np.asarray(uniform_filter1d(floor, size, mode="nearest"), dtype=np.float64)
+    half = max(1, round(lookahead / 2 / BLOCK_SECONDS))
+    held = minimum_filter1d(gain, 2 * half + 1, mode="nearest", origin=-half)
+    coefficient = float(np.exp(-3 * BLOCK_SECONDS / lookahead))
+    out = held.copy()
+    for index in range(len(out) - 2, -1, -1):
+        following = out[index + 1]
+        if out[index] > following:
+            out[index] = following + (1 - coefficient) * (out[index] - following)
+    return out
 
 
 def _release(gain: Signal, release: float) -> Signal:

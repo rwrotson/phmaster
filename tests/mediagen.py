@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -101,3 +102,22 @@ def packet_hashes(path: Path, stream: str) -> str:
     )
     rows = (line.split(",") for line in output.splitlines() if not line.startswith("#"))
     return "\n".join(f"{row[-2].strip()} {row[-1].strip()}" for row in rows)
+
+
+@dataclass(frozen=True, slots=True)
+class Loudness:
+    """EBU R128 statistics measured independently by ffmpeg's ebur128 filter."""
+
+    integrated: float
+    loudness_range: float
+    true_peak: float
+
+
+def ebur128(path: Path, stream: str) -> Loudness:
+    """Measure a stream with ffmpeg's ebur128 filter."""
+    command = ["ffmpeg", "-nostdin", "-hide_banner", "-i", str(path), "-map", stream]
+    command += ["-af", "ebur128=peak=true", "-f", "null", "-"]
+    result = subprocess.run(command, capture_output=True, text=True, check=True)  # noqa: S603
+    summary = result.stderr[result.stderr.rindex("Summary:") :]
+    values = dict(re.findall(r"^\s+(I|LRA|Peak):\s+(-?[\d.]+|-inf)", summary, re.MULTILINE))
+    return Loudness(float(values["I"]), float(values["LRA"]), float(values["Peak"]))
