@@ -12,7 +12,7 @@ from phmaster.services.dsp.loudness import LoudnessEnvelope
 from phmaster.services.dsp.presets import PRESETS, Preset, PresetName
 from phmaster.services.errors import InvalidInputError, MediaError
 from phmaster.services.media.commands import Codec
-from phmaster.services.media.probe import AudioTrack, MediaInfo
+from phmaster.services.media.probe import AudioTrack, MediaInfo, TrackOrigin
 from phmaster.services.media.tools import Tools
 from phmaster.services.pipeline import (
     CodecChoice,
@@ -42,7 +42,7 @@ def track(index: int, layout: str = "5.1", channels: int = 6, **changes: object)
         language=None,
         title=None,
         duration=10.0,
-        generated_by=None,
+        origin=None,
     )
     return replace(base, **changes)  # type: ignore[arg-type]
 
@@ -60,12 +60,13 @@ def media(*tracks: AudioTrack) -> MediaInfo:
 INFO = media(
     track(0, language="rus"),
     track(1, "stereo", 2, language="ENG"),
-    track(2, "stereo", 2, generated_by="night"),
+    track(2, "stereo", 2, origin=TrackOrigin("night", "stereo", 1)),
+    track(3, "stereo", 2, title="Phmaster commentary"),
 )
 
 
 def test_select_tracks_skips_generated() -> None:
-    assert [t.audio_index for t in select_tracks(INFO, TrackSelection())] == [0, 1]
+    assert [t.audio_index for t in select_tracks(INFO, TrackSelection())] == [0, 1, 3]
 
 
 def test_select_tracks_by_index_and_language() -> None:
@@ -75,7 +76,7 @@ def test_select_tracks_by_index_and_language() -> None:
 
 
 def test_select_tracks_rejects_unknown_index() -> None:
-    with pytest.raises(InvalidInputError, match=r"no audio track a:5 \(file has 3\)"):
+    with pytest.raises(InvalidInputError, match=r"no audio track a:5 \(file has 4\)"):
         select_tracks(INFO, TrackSelection(indices=(5,)))
 
 
@@ -120,15 +121,15 @@ def test_plan_jobs_expands_presets_and_honours_codec() -> None:
 @pytest.mark.parametrize(
     ("source", "title"),
     [
-        (track(0, title="Dub", language="rus"), "Dub · phmaster night (stereo)"),
-        (track(0, language="rus"), "rus · phmaster night (stereo)"),
-        (track(2), "Track 3 · phmaster night (stereo)"),
+        (track(0, title="Dub", language="rus"), "Dub · phmaster night (stereo, a:0)"),
+        (track(0, language="rus"), "rus · phmaster night (stereo, a:0)"),
+        (track(2), "Track 3 · phmaster night (stereo, a:2)"),
     ],
 )
 def test_job_title_and_tag(source: AudioTrack, title: str) -> None:
     (job,) = plan_jobs([source], [NIGHT], TrackFormat())
     assert job.title == title
-    assert job.tag == "night:stereo"
+    assert job.tag == f"night:stereo:{source.audio_index}"
 
 
 def test_dialog_channel_only_when_downmix_loses_center() -> None:

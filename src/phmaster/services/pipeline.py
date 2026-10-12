@@ -85,19 +85,19 @@ class Job:
 
     @property
     def title(self) -> str:
-        """Track title shown by players; contains the marker that identifies phmaster tracks."""
+        """Track title shown by players; its suffix identifies phmaster tracks and their source."""
         base = (
             self.title_base
             or self.track.title
             or self.track.language
             or f"Track {self.track.audio_index + 1}"
         )
-        return f"{base} · phmaster {self.preset.name} ({self.layout})"
+        return f"{base} · phmaster {self.preset.name} ({self.layout}, a:{self.track.audio_index})"
 
     @property
     def tag(self) -> str:
         """Value of the PHMASTER tag written to Matroska outputs."""
-        return f"{self.preset.name}:{self.layout}"
+        return f"{self.preset.name}:{self.layout}:{self.track.audio_index}"
 
 
 class ProgressSink(Protocol):

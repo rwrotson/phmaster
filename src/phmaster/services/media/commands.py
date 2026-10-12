@@ -193,13 +193,14 @@ def mux_command(  # noqa: PLR0913 - every argument shapes the ffmpeg command
     output: Path,
     container: Container,
     *,
-    source_audio_count: int,
+    source_titles: Sequence[str | None],
     set_default: bool,
     excluded_stream_indices: Sequence[int] = (),
 ) -> list[str]:
     """Build a command that copies source streams except exclusions and appends new tracks.
 
-    Data streams are dropped unless the container can hold them.
+    `source_titles` lists the titles of the kept source audio tracks in order. Data streams are
+    dropped unless the container can hold them.
     """
     command = [tools.ffmpeg, "-nostdin", "-v", "error", "-y"]
     if source.suffix.lower() in _GENPTS_INPUTS:
@@ -218,14 +219,26 @@ def mux_command(  # noqa: PLR0913 - every argument shapes the ffmpeg command
         command += ["-map", stream]
     command += ["-c", "copy"]
 
-    for offset, track in enumerate(tracks):
-        selector = f"s:a:{source_audio_count + offset}"
-        command += [f"-metadata:{selector}", f"title={track.title}"]
-        command += [f"-metadata:{selector}", f"language={track.language or 'und'}"]
-        if container.is_matroska:
-            command += [f"-metadata:{selector}", f"PHMASTER={track.tag}"]
+    command += _audio_metadata(source_titles, tracks, container)
     if set_default and tracks:
-        for index in range(source_audio_count):
+        for index in range(len(source_titles)):
             command += [f"-disposition:a:{index}", "-default"]
-        command += [f"-disposition:a:{source_audio_count}", "+default"]
+        command += [f"-disposition:a:{len(source_titles)}", "+default"]
     return [*command, "-f", container.muxer, str(output)]
+
+
+def _audio_metadata(
+    source_titles: Sequence[str | None], tracks: Sequence[NewTrack], container: Container
+) -> list[str]:
+    options: list[str] = []
+    # ffprobe reports MP4 titles as `name`, which a stream copy does not write back as a title.
+    for index, title in enumerate(source_titles):
+        if title is not None:
+            options += [f"-metadata:s:a:{index}", f"title={title}"]
+    for offset, track in enumerate(tracks):
+        selector = f"s:a:{len(source_titles) + offset}"
+        options += [f"-metadata:{selector}", f"title={track.title}"]
+        options += [f"-metadata:{selector}", f"language={track.language or 'und'}"]
+        if container.is_matroska:
+            options += [f"-metadata:{selector}", f"PHMASTER={track.tag}"]
+    return options

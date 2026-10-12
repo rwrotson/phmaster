@@ -4,7 +4,7 @@ import pytest
 
 from mediagen import AudioSpec, make_media
 from phmaster.services.errors import MediaError
-from phmaster.services.media.probe import parse_probe, probe
+from phmaster.services.media.probe import TrackOrigin, parse_probe, probe
 from phmaster.services.media.tools import Tools
 
 
@@ -58,8 +58,18 @@ def test_parse_probe_detects_generated_tracks_by_tag_or_title() -> None:
         "format": {"format_name": "mov,mp4", "duration": "n/a"},
         "streams": [
             {"index": 0, "codec_type": "video"},
-            {"index": 1, "codec_type": "audio", "channels": 2, "tags": {"PHMASTER": "night"}},
-            {"index": 2, "codec_type": "audio", "channels": 2, "tags": {"name": "x · phmaster"}},
+            {
+                "index": 1,
+                "codec_type": "audio",
+                "channels": 2,
+                "tags": {"PHMASTER": "night:stereo:0"},
+            },
+            {
+                "index": 2,
+                "codec_type": "audio",
+                "channels": 6,
+                "tags": {"name": "Dub · phmaster night (5.1(side), a:1)"},
+            },
             {"index": 3, "codec_type": "audio", "channels": 1, "duration": "2.5"},
         ],
     }
@@ -67,12 +77,31 @@ def test_parse_probe_detects_generated_tracks_by_tag_or_title() -> None:
     info = parse_probe(Path("a.mp4"), data)
 
     tagged, titled, plain = info.audio_tracks
-    assert tagged.generated_by == "night"
-    assert titled.is_generated
-    assert titled.generated_by == ""
-    assert titled.title == "x · phmaster"
+    assert tagged.origin == TrackOrigin("night", "stereo", 0)
+    assert titled.origin == TrackOrigin("night", "5.1(side)", 1)
+    assert titled.title == "Dub · phmaster night (5.1(side), a:1)"
     assert not plain.is_generated
     assert plain.duration == 2.5
     assert plain.layout == "mono"
     assert info.duration is None
     assert info.has_generated_tracks
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        ({"PHMASTER": "night:stereo"}, TrackOrigin("night", "stereo", None)),
+        ({"title": "x · phmaster night (stereo)"}, TrackOrigin("night", "stereo", None)),
+        ({"title": "Phmaster commentary"}, None),
+        ({"title": "phmaster"}, None),
+        ({"title": "x · phmaster night (stereo) director's cut"}, None),
+    ],
+)
+def test_parse_probe_recognises_only_the_exact_marker(
+    tags: dict[str, str], expected: TrackOrigin | None
+) -> None:
+    data = {"streams": [{"index": 0, "codec_type": "audio", "channels": 2, "tags": tags}]}
+
+    (track,) = parse_probe(Path("a.mkv"), data).audio_tracks
+
+    assert track.origin == expected

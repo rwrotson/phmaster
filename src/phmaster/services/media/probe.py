@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -7,9 +8,23 @@ from phmaster.services.errors import MediaError
 from phmaster.services.media.layouts import resolve_layout
 from phmaster.services.media.tools import Tools, run_tool
 
-# Tag and title marker that identify tracks written by phmaster; MP4 keeps only the title.
+# Tag and title suffix that identify tracks written by phmaster; MP4 keeps only the title.
 TRACK_TAG = "PHMASTER"
-TITLE_MARKER = "phmaster"
+# Titles end with " · phmaster <preset> (<layout>, a:<source index>)"; older titles lack the index.
+_TITLE_SUFFIX = re.compile(
+    r" · phmaster (?P<preset>[\w-]+) "
+    r"\((?P<layout>[^,()]+(?:\([^()]*\))?)(?:, a:(?P<index>\d+))?\)$"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class TrackOrigin:
+    """Preset, layout, and source audio index of a track written by phmaster."""
+
+    preset: str
+    layout: str
+    # None for tracks written before the source index was recorded.
+    source_index: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,12 +40,12 @@ class AudioTrack:
     language: str | None
     title: str | None
     duration: float | None
-    generated_by: str | None
+    origin: TrackOrigin | None
 
     @property
     def is_generated(self) -> bool:
         """Tell whether phmaster wrote this track."""
-        return self.generated_by is not None
+        return self.origin is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,9 +114,6 @@ def _parse_audio(
     channels = int(stream.get("channels", 0))
     language = tags.get("language")
     title = tags.get("title") or tags.get("name")
-    generated_by = tags.get(TRACK_TAG.lower())
-    if generated_by is None and title is not None and TITLE_MARKER in title.lower():
-        generated_by = ""
     return AudioTrack(
         stream_index=int(stream["index"]),
         audio_index=audio_index,
@@ -112,8 +124,20 @@ def _parse_audio(
         language=None if language in {None, "und"} else language,
         title=title,
         duration=_float_or_none(stream.get("duration")) or format_duration,
-        generated_by=generated_by,
+        origin=_origin(tags.get(TRACK_TAG.lower()), title),
     )
+
+
+def _origin(tag: str | None, title: str | None) -> TrackOrigin | None:
+    if tag is not None:
+        preset, _, rest = tag.partition(":")
+        layout, _, index = rest.partition(":")
+        return TrackOrigin(preset, layout, int(index) if index.isdigit() else None)
+    match = _TITLE_SUFFIX.search(title or "")
+    if match is None:
+        return None
+    index = match["index"]
+    return TrackOrigin(match["preset"], match["layout"], None if index is None else int(index))
 
 
 def _float_or_none(value: object) -> float | None:

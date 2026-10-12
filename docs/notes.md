@@ -47,7 +47,7 @@ Services call ffmpeg and ffprobe through `subprocess` without a shell; commands 
 
 Channel layout conversion uses `aresample` rematrixing (`ochl`, `clev`, `slev`, `lfe_mix_level`), so any layout ffmpeg knows can be downmixed. `amerge` needs `aformat` on both inputs to negotiate formats.
 
-ffprobe reports Matroska tags as written; MP4 drops custom tags and reports the track title as `name`. phmaster therefore marks its tracks with both a `PHMASTER` tag and a title containing `phmaster`.
+ffprobe reports Matroska tags as written; MP4 drops custom tags and reports the track title as `name`. phmaster therefore marks its tracks with both a `PHMASTER=<preset>:<layout>:<source index>` tag and a title ending in ` · phmaster <preset> (<layout>, a:<source index>)`; only that exact suffix marks a track, so a title such as `Phmaster commentary` does not. A stream copy does not write the `name` tag back as a title, so the mux step sets the titles of kept audio tracks explicitly.
 
 ## Documentation Toolchain
 

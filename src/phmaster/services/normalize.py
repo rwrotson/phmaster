@@ -108,16 +108,7 @@ def _normalize(tools: Tools, request: NormalizeRequest, sink: ProgressSink) -> N
         )
 
     require_encoders(tools, (encoder_name(job.codec) for job in jobs))
-    titles = {job.title for job in jobs}
-    replaced = (
-        tuple(
-            track.stream_index
-            for track in info.audio_tracks
-            if track.is_generated and track.title in titles
-        )
-        if request.force
-        else ()
-    )
+    replaced = _replaced_tracks(info, jobs) if request.force else ()
     with tempfile.TemporaryDirectory(prefix=".phmaster-", dir=output.parent) as workdir:
         work = Path(workdir)
         new_tracks: list[NewTrack] = []
@@ -151,7 +142,9 @@ def _normalize(tools: Tools, request: NormalizeRequest, sink: ProgressSink) -> N
                 new_tracks,
                 muxed,
                 container,
-                source_audio_count=len(info.audio_tracks) - len(replaced),
+                source_titles=[
+                    track.title for track in info.audio_tracks if track.stream_index not in replaced
+                ],
                 set_default=request.set_default,
                 excluded_stream_indices=replaced,
             )
@@ -191,6 +184,18 @@ def _publish_new(muxed: Path, output: Path) -> bool:
             output.unlink(missing_ok=True)
             raise
     return True
+
+
+def _replaced_tracks(info: MediaInfo, jobs: list[Job]) -> tuple[int, ...]:
+    """Return stream indices of generated tracks that the jobs regenerate."""
+    keys = {(job.track.audio_index, job.title) for job in jobs}
+    return tuple(
+        track.stream_index
+        for track in info.audio_tracks
+        if track.origin is not None
+        and track.origin.source_index is not None
+        and (track.origin.source_index, track.title) in keys
+    )
 
 
 def _skip_reason(info: MediaInfo, output: Path, request: NormalizeRequest) -> str | None:

@@ -63,7 +63,7 @@ def test_process_title_names_new_track(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.stdout)
-    assert data["results"][0]["tracks"][0]["title"] == "Late night · phmaster night (stereo)"
+    assert data["results"][0]["tracks"][0]["title"] == "Late night · phmaster night (stereo, a:0)"
 
 
 def test_process_reports_failures_with_exit_code(tmp_path: Path) -> None:

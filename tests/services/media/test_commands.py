@@ -150,7 +150,9 @@ def test_mux_appends_tracks_and_copies_source(
     new = NewTrack(path=track, title="English · phmaster night", language="eng", tag="night")
 
     run_tool(
-        mux_command(tools, source, [new], output, container, source_audio_count=1, set_default=True)
+        mux_command(
+            tools, source, [new], output, container, source_titles=["Original"], set_default=True
+        )
     )
 
     streams = ffprobe_streams(output)
@@ -164,6 +166,8 @@ def test_mux_appends_tracks_and_copies_source(
     assert sum(s["codec_type"] == "subtitle" for s in streams) == int(subtitles)
     assert packet_hashes(output, "0:v:0") == packet_hashes(source, "0:v:0")
     assert packet_hashes(output, "0:a:0") == packet_hashes(source, "0:a:0")
+    original = {k.lower(): v for k, v in audio[0]["tags"].items()}
+    assert (original.get("title") or original.get("name")) == "Original"
 
 
 @pytest.mark.parametrize(
@@ -187,7 +191,9 @@ def test_mux_handles_timecode_data_streams(
     new = NewTrack(path=track, title="phmaster night", language=None, tag="night")
 
     run_tool(
-        mux_command(tools, source, [new], output, container, source_audio_count=1, set_default=True)
+        mux_command(
+            tools, source, [new], output, container, source_titles=["Original"], set_default=True
+        )
     )
 
     streams = [s["codec_type"] for s in ffprobe_streams(output)]
@@ -228,7 +234,7 @@ def test_mux_preserves_source_audio_dispositions(tools: Tools, tmp_path: Path) -
             [new],
             output,
             Container(".mkv", "matroska"),
-            source_audio_count=1,
+            source_titles=["Original"],
             set_default=True,
         )
     )
@@ -253,7 +259,7 @@ def test_mux_command_options(tools: Tools) -> None:
         tracks,
         Path("out.mp4"),
         Container(".mp4", "mp4"),
-        source_audio_count=3,
+        source_titles=["Dub", None, "Original"],
         set_default=False,
     )
     assert command[command.index("-fflags") + 1] == "+genpts"
@@ -261,6 +267,8 @@ def test_mux_command_options(tools: Tools) -> None:
     assert command[command.index("-map") + 1] == "0"
     assert command[command.index("-map") + 3] == "-0:d"
     assert "-disposition:a" not in command
+    assert command[command.index("-metadata:s:a:0") + 1] == "title=Dub"
+    assert "-metadata:s:a:1" not in command
     assert command[command.index("-metadata:s:a:3") + 1] == "title=t1"
     assert "language=und" in command
     assert "language=rus" in command

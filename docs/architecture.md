@@ -17,7 +17,7 @@ import-linter checks these boundaries with `uv run poe lint-imports`; the contra
 | Module | Responsibility |
 | --- | --- |
 | `services/media/tools.py` | Locate ffmpeg and ffprobe; run them and turn failures into errors |
-| `services/media/probe.py` | Read tracks with ffprobe; recognise phmaster tracks by the `PHMASTER` tag (Matroska) or the title marker (MP4) |
+| `services/media/probe.py` | Read tracks with ffprobe; recognise phmaster tracks and their source track by the `PHMASTER` tag (Matroska) or the exact title suffix (MP4) |
 | `services/media/layouts.py` | Channel order of ffmpeg's standard layouts |
 | `services/media/commands.py` | Build decode, encode, and mux commands; choose the output container |
 | `services/media/pcm.py` | Stream f32le PCM from and to ffmpeg processes |

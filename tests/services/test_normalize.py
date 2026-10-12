@@ -157,7 +157,35 @@ def test_force_replaces_only_matching_generated_tracks(tools: Tools, tmp_path: P
     )
     tracks = probe(tools, source).audio_tracks
     assert len(tracks) == 4
-    assert any("Late night · phmaster night" in (track.title or "") for track in tracks)
+    assert any(track.title == "Late night · phmaster night (stereo, a:0)" for track in tracks)
+
+
+@pytest.mark.parametrize("name", ["movie.mkv", "movie.mp4"])
+def test_force_keeps_tracks_generated_from_other_sources(
+    tools: Tools, tmp_path: Path, name: str
+) -> None:
+    dub = AudioSpec(title="Dub", burst=None)
+    source = make_media(tmp_path / name, [dub, dub], duration=2)
+
+    def run(index: int) -> None:
+        selection = TrackSelection(indices=(index,))
+        request = NormalizeRequest(
+            source=source, presets=(NIGHT,), selection=selection, in_place=True, force=True
+        )
+        normalize_file(tools, request)
+
+    run(0)
+    first = packet_hashes(source, "0:a:2")
+    run(1)
+    run(1)
+
+    tracks = probe(tools, source).audio_tracks
+    assert len(tracks) == 4
+    assert [(t.title, t.origin.source_index if t.origin else None) for t in tracks[2:]] == [
+        ("Dub · phmaster night (stereo, a:0)", 0),
+        ("Dub · phmaster night (stereo, a:1)", 1),
+    ]
+    assert packet_hashes(source, "0:a:2") == first
 
 
 def test_dry_run_writes_nothing(tools: Tools, tmp_path: Path) -> None:
