@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -155,6 +156,8 @@ def _normalize(tools: Tools, request: NormalizeRequest, sink: ProgressSink) -> N
                 excluded_stream_indices=replaced,
             )
         )
+        if request.in_place:
+            shutil.copymode(request.source, muxed)
         if request.force or output == request.source:
             os.replace(muxed, output)
         elif not _publish_new(muxed, output):

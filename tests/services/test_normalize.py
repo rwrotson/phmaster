@@ -203,6 +203,18 @@ def test_in_place_conversion_removes_the_old_file(tools: Tools, tmp_path: Path) 
     assert sorted(p.name for p in tmp_path.iterdir()) == ["old.mkv"]
 
 
+@pytest.mark.parametrize("name", ["movie.mkv", "old.avi"])
+def test_in_place_keeps_source_permissions(tools: Tools, tmp_path: Path, name: str) -> None:
+    source = make_media(
+        tmp_path / name, [AudioSpec(codec="mp3" if name.endswith(".avi") else "aac")], duration=2
+    )
+    source.chmod(0o640)
+
+    result = normalize_file(tools, NormalizeRequest(source=source, presets=(NIGHT,), in_place=True))
+
+    assert result.output.stat().st_mode & 0o777 == 0o640
+
+
 def test_in_place_does_not_overwrite_another_file(tools: Tools, tmp_path: Path) -> None:
     source = make_media(tmp_path / "old.avi", [AudioSpec(codec="mp3")], duration=2)
     (tmp_path / "old.mkv").write_bytes(b"keep me")

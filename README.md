@@ -65,7 +65,7 @@ Files that already contain phmaster tracks, and files whose output exists, are s
 | `--lang` | all | Source track language code, such as `rus`; repeatable |
 | `--center-mix` | `0` | Center (dialogue) level in stereo downmixes, dB; the ITU default is `-3` |
 | `-r, --recursive` | off | Search directories recursively |
-| `--in-place` | off | Replace the source file instead of writing a copy |
+| `--in-place` | off | Replace the source file instead of writing a copy; its permissions are kept |
 | `--force` | off | Process files with existing phmaster tracks or outputs |
 | `--title` | source title | Base title for new tracks; a different title keeps earlier phmaster tracks with `--force` |
 | `-n, --dry-run` | off | Show the plan without writing files |
