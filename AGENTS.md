@@ -19,7 +19,16 @@ This project uses [uv](https://docs.astral.sh/uv/) for package management.
 uv sync --all-groups --locked
 
 # Run the CLI
-uv run phmaster
+uv run phmaster probe movie.mkv [--loudness]
+uv run phmaster process movie.mkv [-p night -p medium] [--layout both] [--dry-run]
+
+# Run one test file or test
+uv run pytest tests/services/test_normalize.py
+uv run pytest tests/services/dsp/test_gain.py::test_gain_changes_smoothly
+
+# Docker image (ffmpeg included; works in /media)
+docker build -t phmaster .
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/media" phmaster process movie.mkv
 
 # Tasks via poethepoet (uv run poe <name>)
 uv run poe check        # fmt-check, lint, lint-imports, typecheck, test
@@ -83,8 +92,8 @@ uv run --group docs properdocs build --strict
 Parallel jobs:
 
 - **`quality`** — `poe fmt-check`, `poe lint`, `poe lint-imports`, `poe typecheck`.
-- **`test`** — `poe test` (95% branch coverage).
-- **`lowest`** — installs the lowest allowed direct dependencies (`--resolution lowest-direct`)
+- **`test`** — installs ffmpeg with apt, then `poe test` (95% branch coverage).
+- **`lowest`** — installs ffmpeg and the lowest allowed direct dependencies (`--resolution lowest-direct`)
   and runs pytest; it checks the declared lower bounds, which the lock does not.
 - **`build`** — `uv build`, `properdocs build --strict`, `poe audit`, trivy filesystem scan
   (CRITICAL/HIGH).
@@ -130,23 +139,37 @@ from phmaster.utils.console import get_console
 ### CLI Structure
 
 ```
-src/phmaster/cli/app.py          — Root Typer app; registers subcommand groups and global options
+src/phmaster/cli/app.py          — Root Typer app; registers commands and global options
 src/phmaster/cli/context.py      — AppContext (settings, console, output format) and get_app_context()
 src/phmaster/cli/errors.py       — ServiceErrorGroup: reports ServiceError on stderr and exits with its code
+src/phmaster/cli/progress.py     — Rich ProgressSink on stderr (hidden for JSON output)
 src/phmaster/cli/callbacks/      — Eager option callbacks that print metadata and exit
-src/phmaster/cli/commands/       — Subcommand groups; each file creates its own Typer sub-app
-src/phmaster/services/           — Use cases, result types, and ServiceError subclasses
+src/phmaster/cli/commands/       — process, probe (top-level via add_typer without a name), completion group
+src/phmaster/services/           — Use cases, DSP, ffmpeg integration, and ServiceError subclasses
 ```
 
 The root callback (`app.py`) stores an `AppContext` in `ctx.obj` before any subcommand runs; commands read it with `get_app_context(ctx)`. It also adjusts the root logger level when `--verbose` is passed.
 
-Follow the layers in `docs/architecture.md`: commands call use cases in `phmaster.services`; services never import Typer, Rich, structlog, settings, `phmaster.cli`, or `phmaster.utils`. Expected failures raise a `ServiceError` subclass with an `exit_code` instead of `typer.Exit`. import-linter contracts in `pyproject.toml` enforce the boundaries (`uv run poe lint-imports`).
+Follow the layers in `docs/architecture.md`: commands call use cases in `phmaster.services`; services never import Typer, Rich, structlog, settings, `phmaster.cli`, or `phmaster.utils` (numpy and scipy are allowed). Expected failures raise a `ServiceError` subclass with an `exit_code` instead of `typer.Exit`: `InvalidInputError` 2, `ToolNotFoundError` 3, `MediaError` 4, `FfmpegError` 5. import-linter contracts in `pyproject.toml` enforce the boundaries (`uv run poe lint-imports`).
 
-To add a new command group: put the use case in `src/phmaster/services/`, create a file in `src/phmaster/cli/commands/`, define a Typer app, export it from `__init__.py`, then add `app.add_typer(...)` in `src/phmaster/cli/app.py`.
+Command options default to `None` and fall back to `settings.processing` through `resolve_presets()`, `resolve_format()`, and `resolve_selection()` in `cli/commands/process.py`; `probe` reuses them and the shared `Annotated` option types.
+
+To add a command: put the use case in `src/phmaster/services/`, create a file in `src/phmaster/cli/commands/` with its own Typer app, export it from `__init__.py`, then add `app.add_typer(...)` in `src/phmaster/cli/app.py`.
+
+### Processing Pipeline
+
+The signal chain is documented in `docs/algorithm.md`; read it before changing DSP code.
+
+- `services/media/` wraps ffmpeg: `probe.py` (ffprobe JSON → `MediaInfo`/`AudioTrack`), `commands.py` (decode/encode/mux argument lists, container choice), `pcm.py` (streaming f32le 48 kHz PCM through pipes; stderr goes to a temp file), `layouts.py`, `tools.py`. Downmixing is ffmpeg `aresample` rematrixing; when a stereo downmix drops the source center, the decoder appends it as an extra, unencoded dialogue channel.
+- `services/dsp/loudness.py` meters BS.1770 power per 10 ms block (`BlockMeter`); `gain.py` plans the whole curve offline (`plan_gain`: median-based reference, slow gain from an 8 s running median, compressor, lookahead hold + reverse-time attack, forward release) and applies it (`GainApplier`). Preset values are in `presets.py`.
+- `services/pipeline.py` turns tracks into `Job`s (track × layout × preset), measures each (track, layout) once (`plan_all`), and renders (`render`). `normalize.py` handles one file (skip rules, `.phmaster-*` temp dir next to the output, mux, `os.replace`, in-place replacement); `batch.py` discovers files and collects per-file failures; `analyze.py` backs `probe --loudness`.
+- Generated tracks carry a `PHMASTER=<preset>:<layout>` tag (Matroska only) and a title containing `phmaster` (the only marker MP4 keeps); `AudioTrack.is_generated` checks both, and such files are skipped unless `--force`.
+
+Check DSP changes by listening and with independent measurement: `ffmpeg -i out.mkv -map 0:a:1 -af ebur128=peak=true -f null -` reports integrated loudness, LRA, and true peak.
 
 ### Configuration via Environment Variables
 
-`src/phmaster/config/settings.py` defines `Settings` (Pydantic `BaseSettings`, prefix `PHMASTER_`, nested delimiter `__`) with defaults in code and the sections `ConsoleSettings` (`PHMASTER_CONSOLE__*`) and `LogSettings` (`PHMASTER_LOG__*`). `load_settings()` reads the environment and `.env`; empty values use defaults. `setup_logging()` and `build_console()` take a section instead of reading the environment themselves.
+`src/phmaster/config/settings.py` defines `Settings` (Pydantic `BaseSettings`, prefix `PHMASTER_`, nested delimiter `__`) with defaults in code and the sections `ConsoleSettings` (`PHMASTER_CONSOLE__*`), `LogSettings` (`PHMASTER_LOG__*`), and `ProcessingSettings` (`PHMASTER_PROCESSING__*`: default presets, layout, codec, bitrates, languages, suffix, ffmpeg paths). Config must not import services, so processing choices are `Literal` types there and converted to service enums in the CLI. `load_settings()` reads the environment and `.env`; empty values use defaults. `setup_logging()` and `build_console()` take a section instead of reading the environment themselves.
 
 Every setting needs a `Field(description=...)` and a line in `.env.example`; tests in `tests/config/` enforce both. The docs configuration page is generated from `Settings` by `docs/gen_config_page.py`; do not edit it by hand.
 
@@ -181,6 +204,8 @@ Before `setup_logging()` is called (e.g. in tests), structlog defaults to stderr
 ### Testing
 
 `tests/` mirrors the package (`cli/`, `config/`, `services/`, `utils/`). Test use cases directly in `tests/services/`, and argument parsing, output, and exit codes with `CliRunner` in `tests/cli/`.
+
+`tests/mediagen.py` (importable as `mediagen`; `tests` is on mypy's path) generates short media files with ffmpeg's lavfi sources: test video, tone tracks in any layout with an optional burst 20 dB louder, optional subtitles, any container. It also provides `ffprobe_streams()`, `packet_hashes()` (to prove stream copies are bit-identical), and `ebur128()` (independent loudness measurement). DSP unit tests in `tests/services/dsp/` build envelopes directly from (seconds, LUFS) scenes. Keep generated clips a few seconds long to stay within the per-test timeout.
 
 Tests run in parallel (pytest-xdist) and in random order (pytest-randomly); warnings are errors and each test has a 30-second timeout. Autouse fixtures in `tests/conftest.py` remove `PHMASTER_*` variables, run each test in a temporary working directory (so a local `.env` is not read), restore logging and structlog configuration, and clear the cached console. Tests must not depend on process-wide state or on each other. Reproduce an order-dependent failure with `uv run pytest -p randomly --randomly-seed=<seed>` (the seed is printed at the top of the run).
 

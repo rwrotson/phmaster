@@ -4,6 +4,7 @@
 
 - Python 3.14+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- [ffmpeg and ffprobe](https://ffmpeg.org/download.html) 6.0+ on `PATH` (also needed by the tests)
 
 ## Installation
 
@@ -30,16 +31,23 @@ uv run phmaster --version
 uv run phmaster --authors
 ```
 
+### Processing files
+
+```bash
+uv run phmaster probe movie.mkv
+uv run phmaster probe movie.mkv --loudness -p night -p medium
+uv run phmaster process movie.mkv --dry-run
+uv run phmaster process movie.mkv -p night --layout both
+```
+
 ### Global flags
 
 Place global flags before the subcommand:
 
 ```bash
-uv run phmaster --verbose command example-command hello
+uv run phmaster --verbose process movie.mkv
 
-uv run phmaster --output-format json command example-command hello
-
-echo "hello" | uv run phmaster command example-command
+uv run phmaster --output-format json probe movie.mkv
 ```
 
 ### Shell completion

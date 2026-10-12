@@ -1,200 +1,125 @@
-# typer-template
+# phmaster
 
-A Python CLI template with Typer, Rich output, structlog logging, and environment-based settings.
+Watch films at night without waking the neighbours. `phmaster` adds loudness-normalized audio tracks to video files: explosions are tamed, whispers are raised, and the level stays smooth, without pumping, sudden dips, or peaks slipping through. The original tracks are kept, so you can switch back at any time.
 
-## What Is Included
-
-- Typer app with global `--verbose`, `--output-format text|json`, `--version`, and `--authors` options; JSON on stdout and diagnostics on stderr; piped stdin support; shell completion commands
-- A `services/` layer for use cases; `ServiceError` subclasses map to stderr messages and exit codes; import-linter contracts keep services independent of Typer, Rich, and settings
-- One Pydantic `Settings` with nested `PHMASTER_CONSOLE__*` and `PHMASTER_LOG__*` sections, a test that keeps `.env.example` in sync, and a generated configuration page
-- structlog logging to stderr (console or JSON) and a rotating JSON log file with UTC timestamps
-- Strict MyPy with the Pydantic plugin, Ruff, pytest in parallel and random order with a 95% branch coverage gate, poethepoet tasks, pre-commit hooks, Commitizen
-- CI with a lowest-dependency test job, package and strict docs builds, pip-audit, and trivy; actions pinned to commit SHAs; ProperDocs on GitHub Pages after CI passes on a release tag
-
-## Stack
-
-- **[Typer](https://typer.tiangolo.com/)** — CLI framework
-- **[Rich](https://rich.readthedocs.io/)** — terminal output and progress bars
-- **[structlog](https://www.structlog.org/)** — structured logging with context binding; dev console output or JSON for aggregators
-- **[Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)** — environment-based configuration
-- **[uv](https://docs.astral.sh/uv/)** — package management
-- **[Ruff](https://docs.astral.sh/ruff/)** — linting and formatting
-- **[MyPy](https://mypy.readthedocs.io/)** — strict type checking
-- **[pytest](https://docs.pytest.org/)** + **[pytest-xdist](https://github.com/pytest-dev/pytest-xdist)** + **[pytest-randomly](https://github.com/pytest-dev/pytest-randomly)** — parallel tests in random order with coverage enforcement
-- **[import-linter](https://import-linter.readthedocs.io/)** — layer boundary contracts
-- **[poethepoet](https://poethepoet.natn.io/)** — task runner
-- **[commitizen](https://commitizen-tools.github.io/commitizen/)** — Conventional Commits + automated versioning and CHANGELOG
-- **[ProperDocs](https://properdocs.org/)** + **[Material for MkDocs](https://squidfunk.github.io/mkdocs-material/)** — documentation site
+- Works with any container and codec ffmpeg can read; new tracks are appended by stream copy, so video, subtitles, and attachments stay bit-identical
+- Plans the gain over the whole track before rendering, so the level eases down just before a loud moment instead of reacting after it
+- Measures loudness per ITU-R BS.1770 and anchors it to the dialogue level, using the center channel when there is one
+- Presets `light`, `medium`, and `night`; generate several in one run
+- Stereo downmix with a dialogue boost for TV and laptop speakers, or keep 5.1 for a soundbar, or both
+- AAC for stereo and E-AC-3 for 5.1 by default, which TVs, soundbars, and media servers play without transcoding
+- Batch processing of directories, track selection by index or language, Docker image
 
 ## Requirements
 
-- Python 3.14+
-- uv
+- [ffmpeg and ffprobe](https://ffmpeg.org/download.html) 6.0 or newer on `PATH`
+- Python 3.14+ and [uv](https://docs.astral.sh/uv/), or Docker
 
-## Getting Started
+## Installation
 
 ```bash
-uv sync --all-groups --locked
+uv tool install git+https://github.com/rwrotson/phmaster
+```
 
+Or from a clone:
+
+```bash
+uv sync --locked
 uv run phmaster --help
-
-uv run pre-commit install
 ```
 
-## Development
-
-Run development tasks with [poethepoet](https://poethepoet.natn.io/):
+## Usage
 
 ```bash
-uv run poe check       # format check, lint, import contracts, type check, tests with coverage
-uv run poe fmt
-uv run poe test-fast
-uv run poe docs
-uv run poe audit
+# Inspect the audio tracks (indices a:N are used by --track)
+phmaster probe movie.mkv
+
+# Measure loudness and preview the gain each preset would apply
+phmaster probe movie.mkv --loudness -p night -p medium
+
+# Write movie.phm.mkv with a night-mode stereo track added and marked as default
+phmaster process movie.mkv
+
+# Two presets, stereo and 5.1, Russian tracks only, a whole series recursively
+phmaster process ~/Series -r -p night -p medium --layout both --lang rus
+
+# Replace the original file (an .avi becomes .mkv; the old file is removed)
+phmaster process movie.avi --in-place
+
+# Show what would be generated
+phmaster process ~/Movies --dry-run
 ```
 
-Or run the tools directly:
+Files that already contain phmaster tracks, and files whose output exists, are skipped; `--force` processes them anyway. Outputs of earlier runs (`*.phm.*`) are ignored when scanning directories.
+
+### Options of `process`
+
+| Option | Default | Effect |
+|--------|---------|--------|
+| `-p, --preset` | `night` | `light`, `medium`, or `night`; repeat for several tracks |
+| `-l, --layout` | `stereo` | `stereo` downmix, `keep` the source layout (more than 5.1 becomes 5.1), or `both` |
+| `-c, --codec` | `auto` | `auto` (AAC for stereo, E-AC-3 for 5.1), `aac`, `eac3`, `ac3`, `opus`, `flac` |
+| `-t, --track` | all | Source audio track index; repeatable |
+| `--lang` | all | Source track language code, such as `rus`; repeatable |
+| `--center-mix` | `0` | Center (dialogue) level in stereo downmixes, dB; the ITU default is `-3` |
+| `-r, --recursive` | off | Search directories recursively |
+| `--in-place` | off | Replace the source file instead of writing a copy |
+| `--force` | off | Process files with existing phmaster tracks or outputs |
+| `-n, --dry-run` | off | Show the plan without writing files |
+| `--default/--no-default` | `--default` | Mark the first new track as the default audio track |
+
+Global options go before the command: `-V, --verbose` for debug logs, `-f, --output-format json` for machine-readable output on stdout.
+
+### Presets
+
+| Preset | Dialogue level | Loud moments over dialogue | Use |
+|--------|----------------|----------------------------|-----|
+| `light` | −23 LUFS | gently reduced | evening, keeps the film's dynamics |
+| `medium` | −21 LUFS | clearly reduced | quiet room |
+| `night` | −20 LUFS | close to dialogue | neighbours asleep |
+
+How the gain is planned: [Algorithm](https://rwrotson.github.io/phmaster/algorithm/).
+
+## Docker
 
 ```bash
-uv run pytest
-uv run pytest tests/path/to/test.py
+docker build -t phmaster .
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/media" phmaster process movie.mkv
 ```
 
-## Docs
-
-```bash
-uv run --group docs properdocs serve
-uv run --group docs properdocs build
-```
-
-Source is in `docs/`. ProperDocs generates the API reference from public docstrings. The release workflow deploys the site to GitHub Pages.
-
-## Global CLI Flags
-
-The root app exposes flags available to every subcommand:
-
-| Flag | Short | Default | Effect |
-|------|-------|---------|--------|
-| `--verbose` | `-V` | off | Sets log level to DEBUG at runtime |
-| `--output-format` | `-f` | `text` | `text` (Rich) or `json` (machine-readable) |
-| `--version` | `-v` | — | Print version and dependency list, then exit |
-| `--authors` | `-A` | — | Print author contacts, then exit |
-
-JSON output is written to stdout; diagnostics are written to stderr.
-
-```bash
-phmaster --verbose command example-command hello
-phmaster --output-format json command example-command hello
-echo "hello" | phmaster command example-command
-```
-
-## Shell Completion
-
-```bash
-phmaster completion install
-phmaster completion install --shell zsh
-phmaster completion show
-```
-
-Or directly via the built-in Typer flags:
-
-```bash
-phmaster --install-completion
-phmaster --show-completion
-```
-
-## Versioning & Changelog
-
-This template uses [Conventional Commits](https://www.conventionalcommits.org/) enforced by a `commit-msg` pre-commit hook.
-
-```bash
-uv run cz bump
-
-uv run cz changelog --dry-run
-```
-
-Bump type is inferred automatically: `fix:` → patch, `feat:` → minor, `feat!:` / `BREAKING CHANGE` → major.
+The container works in `/media`; pass paths relative to the mounted directory.
 
 ## Configuration
 
-`phmaster.config.Settings` defines defaults in code and reads `PHMASTER_*` environment variables and `.env`; the process environment wins. Sections are nested with `__`:
+Defaults can be changed with `PHMASTER_*` environment variables or a `.env` file in the working directory; command-line options win. Sections are nested with `__`:
 
 | Prefix | Controls |
 |--------|----------|
-| `PHMASTER_CONSOLE__*` | Rich console (width, colors, markup, quiet mode) |
-| `PHMASTER_LOG__*` | Log levels, console renderer, log directory, file rotation |
+| `PHMASTER_PROCESSING__*` | Default presets, layout, codec, bitrates, languages, output suffix, ffmpeg paths |
+| `PHMASTER_CONSOLE__*` | Rich console (width, colors, quiet mode) |
+| `PHMASTER_LOG__*` | Log levels, renderer, log directory, file rotation |
 
 ```env
-PHMASTER_LOG__LEVEL=DEBUG
-PHMASTER_LOG__FORMAT=json
-PHMASTER_CONSOLE__WIDTH=120
+PHMASTER_PROCESSING__PRESETS=["night","medium"]
+PHMASTER_PROCESSING__LAYOUT=both
+PHMASTER_PROCESSING__LANGUAGES=["rus","eng"]
 ```
 
-See `.env.example` and the generated configuration page in the documentation site.
+See `.env.example` for every setting.
 
-## Project Structure
+## Development
 
-```
-src/
-└── phmaster/
-    ├── main.py              # entry point
-    ├── cli/
-    │   ├── app.py           # root Typer app (--verbose, --output-format, --version, --authors)
-    │   ├── context.py       # AppContext stored in ctx.obj
-    │   ├── errors.py        # ServiceError → stderr message and exit code
-    │   ├── callbacks/       # eager option callbacks (--version, --authors)
-    │   └── commands/
-    │       ├── command.py   # example command group (stdin + output-format patterns)
-    │       └── completion.py # shell completion sub-app
-    ├── config/              # Settings with console and log sections
-    ├── services/            # use cases and ServiceError; no Typer, Rich, or settings
-    └── utils/
-        ├── console.py       # singleton Rich Console
-        ├── log.py           # structlog setup (ConsoleRenderer dev / JSON prod)
-        ├── output.py        # OutputFormat enum, render_output(), echo_json()
-        ├── stdin.py         # is_stdin_piped(), read_stdin_if_piped(), iter_stdin_lines()
-        ├── meta.py          # distribution metadata at runtime
-        ├── format.py        # Rich Theme
-        ├── emoji.py         # Emoji StrEnum
-        ├── progress.py      # Rich Progress bar factory
-        └── misc.py          # find_project_root()
+```bash
+uv sync --all-groups --locked
+uv run pre-commit install
+
+uv run poe check       # format check, lint, import contracts, strict mypy, tests with coverage
+uv run poe test-fast   # tests without coverage
+uv run pytest tests/services/test_normalize.py
+uv run poe docs        # documentation site with live reload
 ```
 
-## CI/CD
-
-`.github/workflows/ci.yml` runs on every push/PR to `main` and `dev`. Actions are pinned to commit SHAs.
-
-| Job | What it does |
-|-----|-------------|
-| `quality` | ruff format check, ruff lint, import-linter contracts, strict mypy |
-| `test` | parallel tests in random order, 95% branch coverage enforced |
-| `lowest` | tests against the lowest allowed direct dependencies |
-| `build` | package build, `properdocs build --strict`, pip-audit, trivy filesystem scan (CRITICAL/HIGH) |
-
-Dependabot opens weekly grouped PRs for uv dependencies, GitHub Actions, and pre-commit hooks.
-
-`.github/workflows/release.yml` runs on version tags (`v*`) or via `workflow_dispatch`. It runs CI first, then:
-
-| Job | What it does |
-|-----|-------------|
-| `docs` | builds the docs with ProperDocs and deploys it to GitHub Pages via GitHub Actions |
-
-The workflow does not publish the package to PyPI. Set Pages Source to **GitHub Actions** and allow `v*` tags in the `github-pages` environment for tag-triggered deployments.
-
-## Using This Template
-
-The distribution, import package, and CLI command have separate names. Follow the [renaming checklist](https://rwrotson.github.io/typer-template/notes/#renaming-the-template) when copying this template into a new project.
-
-### Remove the Example
-
-The example command is meant to be copied, then deleted. When your first real command exists, remove:
-
-- `src/phmaster/services/example.py` and `tests/services/test_example.py`
-- `src/phmaster/cli/commands/command.py`, its export in `src/phmaster/cli/commands/__init__.py`, and its `add_typer` line in `src/phmaster/cli/app.py`
-- the `example-command` tests in `tests/cli/test_app.py` (keep the global option tests by pointing them at your command)
-- the `phmaster.services.example` and `phmaster.cli.commands.command` rows in `docs/reference/index.md`, and the example references in `docs/architecture.md` and `docs/notes.md`
-
-Then remove imports the deleted tests leave unused (Ruff reports them as F401 but does not fix them automatically) and run `uv run poe check` and `uv run --group docs properdocs build --strict`.
+Tests generate short media files with ffmpeg, so ffmpeg must be installed. Architecture, conventions, and CI are described in `AGENTS.md` and on the [Architecture](https://rwrotson.github.io/phmaster/architecture/) page.
 
 ## Author
 

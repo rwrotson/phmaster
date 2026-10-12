@@ -41,15 +41,13 @@ render_output(
 
 JSON output goes to stdout; diagnostics go to stderr. In text mode, `render_output()` uses `text_render` when provided and the Rich console otherwise.
 
-## Stdin Piping Pattern
+## ffmpeg Integration
 
-`read_stdin_if_piped()` returns `None` for a TTY and the piped content without trailing line breaks, so `echo hi | phmaster ...` matches `phmaster ... hi`. `read_stdin()` returns stdin unchanged:
+Services call ffmpeg and ffprobe through `subprocess` without a shell; commands are argument lists. Decoders write interleaved little-endian float32 PCM at 48 kHz to stdout; encoders read the same format from stdin. stderr goes to a temporary file, so a chatty process cannot block on a full pipe, and its last lines become the `FfmpegError` message.
 
-```python
-result = run_example(argument if argument is not None else read_stdin_if_piped(), option)
-```
+Channel layout conversion uses `aresample` rematrixing (`ochl`, `clev`, `slev`, `lfe_mix_level`), so any layout ffmpeg knows can be downmixed. `amerge` needs `aformat` on both inputs to negotiate formats.
 
-`CliRunner` provides non-TTY stdin in tests, even when no input is passed. `run_example()` rejects the resulting empty string with `InvalidInputError`.
+ffprobe reports Matroska tags as written; MP4 drops custom tags and reports the track title as `name`. phmaster therefore marks its tracks with both a `PHMASTER` tag and a title containing `phmaster`.
 
 ## Documentation Toolchain
 
@@ -68,30 +66,3 @@ major_version_zero = true
 ```
 
 The `commit-msg` hook checks Conventional Commit format.
-
-## Renaming the Template
-
-Choose three names before editing: a distribution name (for example, `my-tool`), an import
-package (`my_tool`), and a CLI command (`my-tool`). They can differ, but each use of a name
-must stay consistent.
-
-1. Rename `src/phmaster/` to `src/my_tool/`. Replace `phmaster` in imports throughout `src/`
-   and `tests/`, including mock targets and the metadata test. Update `module-name` under
-   `[tool.uv.build-backend]`, `[tool.coverage.run].source`, and
-   `[tool.ruff.lint.isort].known-first-party` in `pyproject.toml`.
-2. Set `[project].name` and `[project.scripts]` in `pyproject.toml`. Point the script at
-   `my_tool.main:main`. Update the project description, authors, keywords, and other metadata.
-3. Change `env_prefix` and the `env_fields()` default prefix in
-   `src/my_tool/config/settings.py`, and `PREFIX` in `docs/gen_config_page.py`. Adjust the
-   default log directory and file name in `LogSettings`. Update `.env.example`, README
-   examples, and tests using `PHMASTER_` variables.
-4. Update `properdocs.yml` (`site_name`, repository links, and the source watch path) and
-   `docs/gen_ref_pages.py`, which scans the import package for API pages. Update names and
-   links in README, docs, and `AGENTS.md`. If you host docs on GitHub Pages, configure Pages
-   Source as **GitHub Actions** and allow release tags in the `github-pages` environment.
-5. Regenerate the lockfile with `uv lock`, then run `uv sync --all-groups --locked`,
-   `uv run pytest`, `uv build`, and `uv run --group docs properdocs build`. Check that
-   `uv run my-tool --help` and `uv run my-tool --version` show the new project identity.
-
-The release workflow only deploys documentation. Add a separate publishing workflow if the
-new project should publish packages to PyPI.
