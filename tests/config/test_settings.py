@@ -52,6 +52,24 @@ def test_invalid_level_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
         load_settings()
 
 
+@pytest.mark.parametrize(
+    ("variable", "value"),
+    [
+        ("STEREO_BITRATE", "0k"),
+        ("SURROUND_BITRATE", "loud"),
+        ("SUFFIX", "../other"),
+        ("SUFFIX", "folder\\other"),
+        ("CENTER_MIX_DB", "nan"),
+    ],
+)
+def test_invalid_processing_settings_are_rejected(
+    monkeypatch: pytest.MonkeyPatch, variable: str, value: str
+) -> None:
+    monkeypatch.setenv(f"PHMASTER_PROCESSING__{variable}", value)
+    with pytest.raises(ValidationError):
+        load_settings()
+
+
 def test_env_example_parses_to_defaults() -> None:
     assert Settings(_env_file=ENV_EXAMPLE) == Settings()
 

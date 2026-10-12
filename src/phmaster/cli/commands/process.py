@@ -1,3 +1,4 @@
+import math
 from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated, Any
@@ -22,6 +23,8 @@ from phmaster.utils.output import OutputFormat, render_output
 
 app = Typer()
 log = get_logger()
+_MIN_CENTER_MIX = -12.0
+_MAX_CENTER_MIX = 12.0
 
 PresetOption = Annotated[
     list[PresetName] | None,
@@ -64,7 +67,11 @@ LanguageOption = Annotated[
 CenterMixOption = Annotated[
     float | None,
     Option(
-        "--center-mix", help="Center (dialogue) level in stereo downmixes, dB.", show_default=False
+        "--center-mix",
+        help="Center (dialogue) level in stereo downmixes, dB.",
+        min=_MIN_CENTER_MIX,
+        max=_MAX_CENTER_MIX,
+        show_default=False,
     ),
 ]
 
@@ -84,6 +91,10 @@ def resolve_format(
     center_mix: float | None,
 ) -> TrackFormat:
     """Combine command options with configured defaults."""
+    if center_mix is not None and (
+        not math.isfinite(center_mix) or not _MIN_CENTER_MIX <= center_mix <= _MAX_CENTER_MIX
+    ):
+        raise InvalidInputError("center mix must be between -12 and 12 dB")
     return TrackFormat(
         layout=layout or Layout(settings.layout),
         codec=codec or CodecChoice(settings.codec),

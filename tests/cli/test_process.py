@@ -94,6 +94,14 @@ def test_process_requires_ffmpeg(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert "no-such-ffmpeg not found" in result.stderr
 
 
+@pytest.mark.parametrize("value", ["13", "nan"])
+def test_process_rejects_invalid_center_mix(tmp_path: Path, value: str) -> None:
+    source = make_media(tmp_path / "movie.mkv", duration=2)
+    result = runner.invoke(app, ["process", str(source), "--dry-run", "--center-mix", value])
+    assert result.exit_code == 2
+    assert not (tmp_path / "movie.phm.mkv").exists()
+
+
 def test_options_fall_back_to_settings() -> None:
     settings = ProcessingSettings(
         presets=["medium", "medium", "night"],

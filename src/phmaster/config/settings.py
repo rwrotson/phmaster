@@ -76,12 +76,23 @@ class ProcessingSettings(BaseModel):
     codec: CodecSetting = Field(
         default="auto", description="Codec of new tracks; `auto` is AAC for stereo, E-AC-3 for 5.1"
     )
-    stereo_bitrate: str = Field(default="256k", description="Bitrate of mono and stereo tracks")
-    surround_bitrate: str = Field(default="640k", description="Bitrate of surround tracks")
+    stereo_bitrate: str = Field(
+        default="256k",
+        pattern=r"^[1-9][0-9]*[kKmM]?$",
+        description=(
+            "Bitrate of mono and stereo tracks; positive number with optional k or M suffix"
+        ),
+    )
+    surround_bitrate: str = Field(
+        default="640k",
+        pattern=r"^[1-9][0-9]*[kKmM]?$",
+        description="Bitrate of surround tracks; positive number with optional k or M suffix",
+    )
     center_mix_db: float = Field(
         default=0.0,
         ge=-12.0,
         le=12.0,
+        allow_inf_nan=False,
         description="Center (dialogue) level in stereo downmixes; the ITU default is -3",
     )
     languages: list[str] = Field(
@@ -89,7 +100,10 @@ class ProcessingSettings(BaseModel):
         description="Process only tracks in these languages, as a JSON list; empty means all",
     )
     suffix: str = Field(
-        default=".phm", min_length=1, description="Inserted before the extension of output files"
+        default=".phm",
+        min_length=1,
+        pattern=r"^[^/\\\x00<>:\"|?*]+$",
+        description="Inserted before the output extension; must be a filename fragment",
     )
     set_default: bool = Field(
         default=True, description="Mark the first new track as the default audio track"

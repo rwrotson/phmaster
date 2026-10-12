@@ -107,6 +107,7 @@ PHMASTER_PROCESSING__LANGUAGES=["rus","eng"]
 ```
 
 See `.env.example` for every setting.
+Bitrates must be positive numbers with an optional `k` or `M` suffix, the output suffix must be a filename fragment, and the center mix must be between −12 and +12 dB.
 
 ## Development
 
