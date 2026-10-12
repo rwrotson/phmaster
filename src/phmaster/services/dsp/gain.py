@@ -20,6 +20,10 @@ from phmaster.services.dsp.presets import Preset
 # gain instead of being raised, so room tone and noise floors are not pumped up.
 SILENCE_FLOOR = -60.0
 SILENCE_RELATIVE = -35.0
+# Scenes up to this far below the dialogue level get the full boost; further down the boost
+# fades out towards SILENCE_RELATIVE, so room tone and hiss are not raised like a quiet scene
+# and the gain does not jump at the silence threshold.
+BOOST_FADE = -20.0
 # The slow gain follows the median scene level over this window, so it reacts only to level
 # changes lasting longer than half of it; shorter loud moments are left to the compressor,
 # and shorter fades and pauses keep the gain of the scene around them.
@@ -65,6 +69,8 @@ def _slow_gain(power: Signal, reference: float, static_gain: float, preset: Pres
         return np.full(len(power), static_gain)
     level = _sustained_level(momentary)
     deviation = np.clip(preset.strength * (reference - level), -preset.max_cut, preset.max_boost)
+    fade = np.clip((level - reference - SILENCE_RELATIVE) / (BOOST_FADE - SILENCE_RELATIVE), 0, 1)
+    deviation = np.where(deviation > 0, deviation * fade, deviation)
     sigma = preset.smoothing / BLOCK_SECONDS
     return np.asarray(
         gaussian_filter1d(static_gain + deviation, sigma, mode="nearest"), dtype=np.float64

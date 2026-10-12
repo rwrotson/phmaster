@@ -94,6 +94,16 @@ def test_quiet_scene_boost_is_capped() -> None:
     assert plan.min_gain < plan.max_gain
 
 
+def test_quiet_scene_boost_fades_towards_silence() -> None:
+    levels = [-46.0, -52.0, -58.0]
+    plans = [plan_gain(scenes((20, -24), (15, level), (20, -24)), NIGHT) for level in levels]
+    boosts = [float(np.median(plan.gain[2500:3000])) - plan.static_gain for plan in plans]
+    outputs = [level + boost for level, boost in zip(levels, boosts, strict=True)]
+    assert boosts[0] > boosts[1] > boosts[2]
+    assert boosts[2] < 1.5
+    assert outputs[0] > outputs[1] > outputs[2]
+
+
 def test_silence_holds_surrounding_gain() -> None:
     plan = plan_gain(scenes((20, -30), (10, -90), (20, -30)), NIGHT)
     np.testing.assert_allclose(plan.gain, plan.static_gain, atol=0.3)

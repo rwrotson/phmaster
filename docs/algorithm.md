@@ -40,6 +40,7 @@ The slow gain follows sustained level changes, like a hand on a fader:
 - Momentary loudness is computed, silent stretches (below −60 LUFS or 35 LU under the reference) are bridged by interpolation, so pauses and room tone are never raised.
 - The running median over 8 seconds gives the scene level. Events shorter than about 4 seconds, in either direction, do not move it; they are left to the compressor.
 - The gain is `static gain + strength × (reference − scene level)`, limited by `max_boost` and `max_cut`, and smoothed with a Gaussian.
+- The boost is full for scenes up to 20 LU below the reference and fades out linearly towards the silence threshold 35 LU below it, so quiet scenes are raised while room tone and hiss barely are, and the gain does not jump at the threshold.
 
 ## Compressor
 
