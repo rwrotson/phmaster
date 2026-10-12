@@ -104,7 +104,7 @@ fail_under = 95
 # MYPY -------------------------------------------------------------------------
 [tool.mypy]
 python_version = "3.14"
-mypy_path = "src"
+mypy_path = ["src", "tests"]
 explicit_package_bases = true
 files = ["src", "tests", "docs"]
 exclude_gitignore = true
