@@ -75,7 +75,8 @@ def test_normalize_appends_tracks_and_tames_the_burst(tools: Tools, tmp_path: Pa
     source_lra = ebur128(source, "0:a:0").loudness_range
     night = ebur128(result.output, "0:a:1")
     assert night.loudness_range < source_lra - 8
-    assert night.true_peak <= NIGHT.ceiling + 0.5
+    assert night.true_peak <= NIGHT.ceiling
+    assert result.tracks[0].true_peak == pytest.approx(night.true_peak, abs=0.05)
     assert progress.stages[0].startswith("Measuring Dub (stereo)")
     assert progress.stages[-1] == "Writing movie.phm.mkv"
     assert progress.seconds == pytest.approx(14 * 6, rel=0.05)
@@ -92,7 +93,7 @@ def test_flac_output_respects_the_true_peak_ceiling(tools: Tools, tmp_path: Path
 
     result = normalize_file(tools, request)
 
-    assert ebur128(result.output, "0:a:1").true_peak <= LIGHT.ceiling + 0.2
+    assert ebur128(result.output, "0:a:1").true_peak <= LIGHT.ceiling
 
 
 def test_mp4_stays_mp4_and_marks_tracks_by_title(tools: Tools, tmp_path: Path) -> None:

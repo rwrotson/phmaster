@@ -219,14 +219,15 @@ def print_outcome(app_context: AppContext, outcome: NormalizeResult | FileFailur
 def print_tracks(console: Console, result: NormalizeResult) -> None:
     """Print the generated tracks of a file as a table."""
     table = Table(box=None, pad_edge=False)
-    for column in ("source", "preset", "layout", "codec", "dialogue", "gain"):
+    for column in ("source", "preset", "layout", "codec", "dialogue", "gain", "peak"):
         table.add_column(column)
     for track in result.tracks:
         dialogue = "—" if track.reference is None else f"{track.reference:.1f} LUFS"
         gain = "—"
         if track.min_gain is not None and track.max_gain is not None:
             gain = f"{track.min_gain:+.1f} … {track.max_gain:+.1f} dB"
+        peak = "—" if track.true_peak is None else f"{track.true_peak:.1f} dBTP"
         table.add_row(
-            f"a:{track.source_index}", track.preset, track.layout, track.codec, dialogue, gain
+            f"a:{track.source_index}", track.preset, track.layout, track.codec, dialogue, gain, peak
         )
     console.print(table)

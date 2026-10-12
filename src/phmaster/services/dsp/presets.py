@@ -36,7 +36,7 @@ class Preset:
     smoothing: float
     """Standard deviation of the Gaussian that smooths the slow gain."""
     ceiling: float
-    """True-peak ceiling of the safety limiter in dBTP."""
+    """True-peak ceiling of the generated track in dBTP."""
 
 
 PRESETS: dict[PresetName, Preset] = {

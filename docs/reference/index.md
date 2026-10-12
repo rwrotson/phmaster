@@ -24,6 +24,7 @@ The pages below are generated from public objects in `src/phmaster/`.
 | `phmaster.services.media.probe` | Read media streams with ffprobe |
 | `phmaster.services.media.commands` | Build ffmpeg decode, encode, and mux commands |
 | `phmaster.services.media.pcm` | Stream PCM to and from ffmpeg |
+| `phmaster.services.media.peaks` | Measure the true peak of an encoded track |
 | `phmaster.services.media.layouts` | Describe channel layouts |
 | `phmaster.services.media.tools` | Locate and run ffmpeg and ffprobe |
 | `phmaster.config.settings` | Define and load application settings |

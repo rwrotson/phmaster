@@ -21,6 +21,7 @@ import-linter checks these boundaries with `uv run poe lint-imports`; the contra
 | `services/media/layouts.py` | Channel order of ffmpeg's standard layouts |
 | `services/media/commands.py` | Build decode, encode, and mux commands; choose the output container |
 | `services/media/pcm.py` | Stream f32le PCM from and to ffmpeg processes |
+| `services/media/peaks.py` | Measure the true peak of an encoded track |
 | `services/dsp/loudness.py` | BS.1770 metering, gated loudness, LRA, reference level |
 | `services/dsp/gain.py` | Gain planning and application |
 | `services/dsp/presets.py` | Preset parameters |

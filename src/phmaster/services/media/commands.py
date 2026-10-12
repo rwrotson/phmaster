@@ -36,6 +36,16 @@ def encoder_name(codec: Codec) -> str:
     return _ENCODERS[codec]
 
 
+# AAC and Opus band-limit and requantize the limited signal, which lifts true peaks above the
+# limiter's ceiling (about 0.2 dB at 256k, 1 dB at 160k); this headroom avoids most re-renders.
+_PEAK_MARGINS: dict[Codec, float] = {Codec.aac: 0.5, Codec.opus: 0.5}
+
+
+def peak_margin(codec: Codec) -> float:
+    """Return the headroom in dB below the true-peak ceiling at which the codec is limited."""
+    return _PEAK_MARGINS.get(codec, 0.0)
+
+
 _AC3_LAYOUTS = frozenset(
     {"mono", "stereo", "2.1", "3.0", "3.0(back)", "3.1", "4.0", "4.1", "quad", "quad(side)"}
     | {"5.0", "5.0(side)", "5.1", "5.1(side)"}

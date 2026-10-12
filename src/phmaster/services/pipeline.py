@@ -9,6 +9,7 @@ from phmaster.services.dsp.loudness import (
     SAMPLE_RATE,
     BlockMeter,
     LoudnessEnvelope,
+    Signal,
     channel_weights,
 )
 from phmaster.services.dsp.presets import Preset
@@ -20,13 +21,18 @@ from phmaster.services.media.commands import (
     decode_command,
     encodable_layout,
     encode_command,
+    peak_margin,
 )
 from phmaster.services.media.layouts import channel_names, has_center, kept_layout
 from phmaster.services.media.pcm import PcmWriter, read_pcm
+from phmaster.services.media.peaks import true_peak
 from phmaster.services.media.probe import AudioTrack, MediaInfo
 from phmaster.services.media.tools import Tools
 
 CHUNK_FRAMES = SAMPLE_RATE
+# Encodes per track: the first, then corrections that lower the limiter by the measured excess.
+MAX_RENDERS = 3
+_PEAK_CORRECTION_MARGIN = 0.1
 _STEREO_CHANNELS = 2
 
 
@@ -231,19 +237,57 @@ def render(  # noqa: PLR0913 - the render step needs the full job context
     plan: GainPlan,
     destination: Path,
     progress: ProgressSink,
+) -> float | None:
+    """Apply a planned gain to a job's track, encode it to `destination`, and return its true peak.
+
+    Lossy codecs can lift true peaks above the limiter's ceiling, so the encoded track is
+    measured and encoded again with a lower limit while it exceeds the preset's ceiling.
+    """
+    ceiling = job.preset.ceiling
+    limit = ceiling - peak_margin(job.codec)
+    peak: float | None = None
+    for attempt in range(MAX_RENDERS):
+        verb = "Rendering" if attempt == 0 else "Rendering again"
+        progress.stage(f"{verb} {job.title}", job.track.duration)
+        _encode(
+            tools,
+            source,
+            job,
+            output=output,
+            gain=plan.gain,
+            destination=destination,
+            limit=limit,
+            progress=progress,
+        )
+        progress.stage(f"Checking peaks of {job.title}", None)
+        peak = true_peak(tools, destination)
+        if peak is None or peak <= ceiling:
+            break
+        limit -= peak - ceiling + _PEAK_CORRECTION_MARGIN
+    return peak
+
+
+def _encode(  # noqa: PLR0913 - one encode pass needs the full job context
+    tools: Tools,
+    source: Path,
+    job: Job,
+    *,
+    output: TrackFormat,
+    gain: Signal,
+    destination: Path,
+    limit: float,
+    progress: ProgressSink,
 ) -> None:
-    """Apply a planned gain to a job's track and encode the result to `destination`."""
     spec = _decode_spec(source, job, output)
     channels = len(channel_names(job.layout))
-    applier = GainApplier(plan.gain)
+    applier = GainApplier(gain)
     encode = EncodeSpec(
         output=destination,
         layout=job.layout,
         codec=job.codec,
         bitrate=job.bitrate,
-        ceiling_db=job.preset.ceiling,
+        ceiling_db=limit,
     )
-    progress.stage(f"Rendering {job.title}", job.track.duration)
     with (
         PcmWriter(encode_command(tools, encode)) as writer,
         read_pcm(decode_command(tools, spec), spec.channels, CHUNK_FRAMES) as chunks,

@@ -6,6 +6,7 @@ phmaster renders each new track in two passes over the decoded audio. The first 
 pass 1   ffmpeg decode → f32 PCM 48 kHz → K-weighting → block power (10 ms)
 plan     reference level → slow gain + compressor → lookahead and release smoothing
 pass 2   ffmpeg decode → PCM × gain → ffmpeg: 4× oversampled true-peak limiter → encoder
+check    true peak of the encoded track; encode again with a lower limit if it exceeds the ceiling
 mux      ffmpeg -c copy: source streams + new tracks (data streams kept only in MOV; fails if the output container rejects another stream)
 ```
 
@@ -59,6 +60,8 @@ Steps 1 and 2 only lower the curve, so the gain at a loud moment never exceeds w
 ## Safety limiter
 
 The encoder runs ffmpeg's `alimiter` at 192 kHz (4× oversampling, so inter-sample peaks are caught) with the preset ceiling in dBTP and delay compensation. It only acts on rare peaks the gain curve leaves; for normal content it is transparent.
+
+Lossy codecs band-limit and requantize the limited signal, which lifts true peaks again: AAC at 256 kbit/s by about 0.2 dB, at 160 kbit/s by about 1 dB. AAC and Opus are therefore limited 0.5 dB below the ceiling. The encoded track is then measured with ffmpeg's `ebur128` true-peak meter; if it still exceeds the ceiling, it is encoded again with the limit lowered by the excess plus 0.1 dB, at most twice. The measured true peak is reported for every generated track.
 
 ## Presets
 

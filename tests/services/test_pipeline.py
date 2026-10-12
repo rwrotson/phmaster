@@ -7,13 +7,14 @@ import numpy as np
 import pytest
 
 import phmaster.services.pipeline as pipeline_module
+from mediagen import ebur128, run
 from phmaster.services.dsp.gain import GainPlan
 from phmaster.services.dsp.loudness import LoudnessEnvelope
 from phmaster.services.dsp.presets import PRESETS, Preset, PresetName
 from phmaster.services.errors import InvalidInputError, MediaError
 from phmaster.services.media.commands import Codec
-from phmaster.services.media.probe import AudioTrack, MediaInfo, TrackOrigin
-from phmaster.services.media.tools import Tools
+from phmaster.services.media.probe import AudioTrack, MediaInfo, TrackOrigin, probe
+from phmaster.services.media.tools import Tools, find_tools
 from phmaster.services.pipeline import (
     CodecChoice,
     Job,
@@ -227,3 +228,101 @@ def test_iter_plans_reuses_interleaved_measurement(
 
     assert [job for job, _, _ in planned] == jobs
     assert measured == [0, 1]
+
+
+def render_with_peaks(
+    monkeypatch: pytest.MonkeyPatch, peaks: list[float | None]
+) -> tuple[float | None, list[float]]:
+    limits: list[float] = []
+
+    def encode(*_: object, limit: float, **__: object) -> None:
+        limits.append(limit)
+
+    measured = iter(peaks)
+    monkeypatch.setattr(pipeline_module, "_encode", encode)
+    monkeypatch.setattr(pipeline_module, "true_peak", lambda *_: next(measured))
+    (job,) = plan_jobs([track(0, "stereo", 2)], [NIGHT], TrackFormat(codec=CodecChoice.flac))
+    plan = GainPlan(gain=np.zeros(0), reference=None, static_gain=0.0)
+    peak = pipeline_module.render(
+        Tools("ffmpeg", "ffprobe"),
+        Path("in.mkv"),
+        job,
+        output=TrackFormat(),
+        plan=plan,
+        destination=Path("out.mka"),
+        progress=NullProgress(),
+    )
+    return peak, limits
+
+
+def test_render_lowers_the_limit_by_the_measured_excess(monkeypatch: pytest.MonkeyPatch) -> None:
+    peak, limits = render_with_peaks(monkeypatch, [NIGHT.ceiling + 3.0, NIGHT.ceiling - 0.5])
+
+    assert peak == NIGHT.ceiling - 0.5
+    assert limits == pytest.approx([NIGHT.ceiling, NIGHT.ceiling - 3.1])
+
+
+def test_render_stops_after_max_renders(monkeypatch: pytest.MonkeyPatch) -> None:
+    peak, limits = render_with_peaks(monkeypatch, [0.0] * pipeline_module.MAX_RENDERS)
+
+    assert peak == 0.0
+    assert len(limits) == pipeline_module.MAX_RENDERS
+
+
+def test_render_accepts_silence(monkeypatch: pytest.MonkeyPatch) -> None:
+    peak, limits = render_with_peaks(monkeypatch, [None])
+
+    assert peak is None
+    assert len(limits) == 1
+
+
+class RecordingProgress:
+    def __init__(self) -> None:
+        self.stages: list[str] = []
+
+    def stage(self, description: str, total: float | None) -> None:
+        self.stages.append(description)
+
+    def advance(self, seconds: float) -> None:
+        pass
+
+
+def test_lossy_overshoot_is_rendered_again_below_the_ceiling(tmp_path: Path) -> None:
+    # A full-scale square wave hits the limiter, and AAC at 96k rings far above its ceiling.
+    tools = find_tools()
+    source = tmp_path / "square.mka"
+    square = "0.9*sgn(sin(2*PI*220*t))"
+    run(
+        [
+            "ffmpeg",
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            f"aevalsrc=exprs='{square}|{square}':s=48000:d=2",
+            "-c:a",
+            "flac",
+            str(source),
+        ]
+    )
+    track_format = TrackFormat(stereo_bitrate="96k")
+    (job,) = plan_jobs(select_tracks(probe(tools, source), TrackSelection()), [NIGHT], track_format)
+    destination = tmp_path / "out.mka"
+    progress = RecordingProgress()
+
+    peak = pipeline_module.render(
+        tools,
+        source,
+        job,
+        output=track_format,
+        plan=GainPlan(gain=np.zeros(0), reference=None, static_gain=0.0),
+        destination=destination,
+        progress=progress,
+    )
+
+    measured = ebur128(destination, "0:a:0").true_peak
+    assert measured <= NIGHT.ceiling
+    assert peak == pytest.approx(measured, abs=0.05)
+    assert any(stage.startswith("Rendering again") for stage in progress.stages)

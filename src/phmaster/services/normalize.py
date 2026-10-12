@@ -1,7 +1,7 @@
 import os
 import shutil
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from phmaster.services.dsp.presets import Preset
@@ -57,6 +57,7 @@ class GeneratedTrack:
     static_gain: float | None = None
     min_gain: float | None = None
     max_gain: float | None = None
+    true_peak: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,7 +121,7 @@ def _normalize(tools: Tools, request: NormalizeRequest, sink: ProgressSink) -> N
             iter_plans(tools, request.source, jobs, request.track_format, sink)
         ):
             path = work / f"track{number}.mka"
-            render(
+            peak = render(
                 tools,
                 request.source,
                 job,
@@ -133,7 +134,10 @@ def _normalize(tools: Tools, request: NormalizeRequest, sink: ProgressSink) -> N
                 NewTrack(path=path, title=job.title, language=job.track.language, tag=job.tag)
             )
             generated.append(
-                _generated(job, plan.reference, plan.static_gain, plan.min_gain, plan.max_gain)
+                replace(
+                    _generated(job, plan.reference, plan.static_gain, plan.min_gain, plan.max_gain),
+                    true_peak=peak,
+                )
             )
             del envelope, plan
         sink.stage(f"Writing {output.name}", None)
