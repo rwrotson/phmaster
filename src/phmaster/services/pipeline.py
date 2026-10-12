@@ -18,6 +18,7 @@ from phmaster.services.media.commands import (
     DecodeSpec,
     EncodeSpec,
     decode_command,
+    encodable_layout,
     encode_command,
 )
 from phmaster.services.media.layouts import channel_names, has_center, kept_layout
@@ -164,8 +165,9 @@ def plan_jobs(
     for track in tracks:
         for layout in _layouts(track, output.layout):
             codec, bitrate = _codec(layout, output)
+            encoded = encodable_layout(layout, codec)
             jobs.extend(
-                Job(track, preset, layout, codec, bitrate, title_base) for preset in presets
+                Job(track, preset, encoded, codec, bitrate, title_base) for preset in presets
             )
     return jobs
 

@@ -59,7 +59,7 @@ Files that already contain phmaster tracks, and files whose output exists, are s
 | Option | Default | Effect |
 |--------|---------|--------|
 | `-p, --preset` | `night` | `light`, `medium`, or `night`; repeat for several tracks |
-| `-l, --layout` | `stereo` | `stereo` downmix, `keep` the source layout (more than 5.1 becomes 5.1), or `both`; a track without a channel layout is refused unless it has 1, 2, 6, or 8 channels |
+| `-l, --layout` | `stereo` | `stereo` downmix, `keep` the source layout (more than 5.1 becomes 5.1; a layout the codec cannot store uses back instead of side channels, or 5.1), or `both`; a track without a channel layout is refused unless it has 1, 2, 6, or 8 channels |
 | `-c, --codec` | `auto` | `auto` (AAC for stereo, E-AC-3 for 5.1), `aac`, `eac3`, `ac3`, `opus`, `flac` |
 | `-t, --track` | all | Source audio track index; repeatable |
 | `--lang` | all | Source track language code, such as `rus`; repeatable |

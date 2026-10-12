@@ -13,7 +13,7 @@ Audio is streamed in one-second chunks. The envelope and gain curve grow with th
 
 ## Decoding and downmix
 
-Each track is decoded in its target layout. A stereo downmix uses ffmpeg's rematrixing with the center channel at 0 dB instead of the ITU −3 dB (`--center-mix`), surrounds at −3 dB, and no LFE, so dialogue stays intelligible on small speakers. Layouts with more than 5.1 channels are folded into 5.1 when the source layout is kept. A stream without a known layout is assumed to be mono, stereo, 5.1, or 7.1 for 1, 2, 6, or 8 channels; other channel counts are ambiguous (three channels may be 2.1 or 3.0), so such a track is refused before processing rather than risk dropping a channel.
+Each track is decoded in its target layout. A stereo downmix uses ffmpeg's rematrixing with the center channel at 0 dB instead of the ITU −3 dB (`--center-mix`), surrounds at −3 dB, and no LFE, so dialogue stays intelligible on small speakers. Layouts with more than 5.1 channels are folded into 5.1 when the source layout is kept. A kept layout the encoder cannot store with a standard channel order is converted too: side channels become back channels where that suffices (AAC and Opus), otherwise the track becomes 5.1, so that libopus does not reject it and AAC does not write an unknown layout. A stream without a known layout is assumed to be mono, stereo, 5.1, or 7.1 for 1, 2, 6, or 8 channels; other channel counts are ambiguous (three channels may be 2.1 or 3.0), so such a track is refused before processing rather than risk dropping a channel.
 
 When a stereo downmix loses the source center channel, the decoder appends it as an extra channel that is measured but not encoded.
 

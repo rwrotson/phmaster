@@ -414,3 +414,18 @@ def test_selection_limits_tracks(tools: Tools, tmp_path: Path) -> None:
 def test_output_path(source: str, in_place: bool, expected: str) -> None:
     container = Container(".mp4", "mp4")
     assert output_path(Path(source), container, ".phm", in_place=in_place) == Path(expected)
+
+
+def test_opus_keeps_side_surround_in_vorbis_order(tools: Tools, tmp_path: Path) -> None:
+    source = make_media(
+        tmp_path / "movie.mkv", [AudioSpec(layout="5.1(side)", codec="ac3")], duration=2
+    )
+    track_format = TrackFormat(layout=Layout.keep, codec=CodecChoice.opus)
+
+    result = normalize_file(
+        tools, NormalizeRequest(source=source, presets=(NIGHT,), track_format=track_format)
+    )
+
+    new = audio_streams(result.output)[1]
+    assert (new["codec_name"], new["channel_layout"]) == ("opus", "5.1")
+    assert result.tracks[0].layout == "5.1"

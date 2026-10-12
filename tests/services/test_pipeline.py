@@ -107,6 +107,7 @@ def test_select_tracks_requires_a_match(selection: TrackSelection) -> None:
         (track(0, "7.1", 8), Layout.keep, [("5.1", Codec.eac3, "640k")]),
         (track(0, "stereo", 2), Layout.both, [("stereo", Codec.aac, "256k")]),
         (track(0, "mono", 1), Layout.keep, [("mono", Codec.aac, "256k")]),
+        (track(0, "6.0", 6), Layout.keep, [("5.1", Codec.eac3, "640k")]),
     ],
 )
 def test_plan_jobs_layouts_and_auto_codec(
@@ -125,6 +126,15 @@ def test_plan_jobs_expands_presets_and_honours_codec() -> None:
         ("light", "stereo", Codec.opus),
         ("night", "5.1", Codec.opus),
         ("light", "5.1", Codec.opus),
+    ]
+
+
+def test_plan_jobs_renames_side_channels_for_opus() -> None:
+    jobs = plan_jobs(
+        [track(0, "5.1(side)", 6)], [NIGHT], TrackFormat(layout=Layout.keep, codec=CodecChoice.opus)
+    )
+    assert [(job.layout, job.codec, job.dialog_channel) for job in jobs] == [
+        ("5.1", Codec.opus, False)
     ]
 
 

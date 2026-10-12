@@ -12,9 +12,11 @@ from phmaster.services.media.commands import (
     NewTrack,
     choose_container,
     decode_command,
+    encodable_layout,
     encode_command,
     mux_command,
 )
+from phmaster.services.media.layouts import CHANNEL_LAYOUTS, MAX_KEPT_CHANNELS, kept_layout
 from phmaster.services.media.pcm import PcmWriter, read_pcm
 from phmaster.services.media.tools import Tools, run_tool
 
@@ -105,6 +107,45 @@ def test_encode_codecs(
     (stream,) = ffprobe_streams(path)
     assert stream["codec_name"] == codec.value
     assert stream["channels"] == channels
+
+
+KEPT_LAYOUTS = sorted({kept_layout(name) for name in CHANNEL_LAYOUTS})
+
+
+@pytest.mark.parametrize("codec", list(Codec))
+@pytest.mark.parametrize("layout", KEPT_LAYOUTS)
+def test_encodable_layout_is_written_with_its_channel_layout(
+    tools: Tools, tmp_path: Path, codec: Codec, layout: str
+) -> None:
+    encoded = encodable_layout(layout, codec)
+    channels = len(CHANNEL_LAYOUTS[encoded])
+    frames = np.zeros((4800, channels), dtype=np.float32)
+
+    path = _encode(tools, tmp_path / "out.mka", encoded, codec, frames)
+
+    (stream,) = ffprobe_streams(path)
+    assert stream["channels"] == channels
+    assert stream.get("channel_layout")
+
+
+@pytest.mark.parametrize(
+    ("layout", "codec", "expected"),
+    [
+        ("5.1(side)", Codec.opus, "5.1"),
+        ("5.1(side)", Codec.aac, "5.1"),
+        ("5.1(side)", Codec.eac3, "5.1(side)"),
+        ("4.0", Codec.opus, "5.1"),
+        ("6.0", Codec.ac3, "5.1"),
+        ("hexagonal", Codec.flac, "hexagonal"),
+        ("stereo", Codec.opus, "stereo"),
+    ],
+)
+def test_encodable_layout(layout: str, codec: Codec, expected: str) -> None:
+    assert encodable_layout(layout, codec) == expected
+
+
+def test_kept_layouts_fit_in_the_fallback() -> None:
+    assert all(len(CHANNEL_LAYOUTS[name]) <= MAX_KEPT_CHANNELS for name in KEPT_LAYOUTS)
 
 
 @pytest.mark.parametrize(

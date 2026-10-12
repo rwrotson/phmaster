@@ -36,6 +36,34 @@ def encoder_name(codec: Codec) -> str:
     return _ENCODERS[codec]
 
 
+_AC3_LAYOUTS = frozenset(
+    {"mono", "stereo", "2.1", "3.0", "3.0(back)", "3.1", "4.0", "4.1", "quad", "quad(side)"}
+    | {"5.0", "5.0(side)", "5.1", "5.1(side)"}
+)
+# Layouts each encoder writes with a standard channel order; None accepts every layout. AAC
+# marks other layouts as unknown, and libopus rejects layouts outside the Vorbis order.
+_ENCODER_LAYOUTS: dict[Codec, frozenset[str] | None] = {
+    Codec.aac: frozenset(
+        {"mono", "stereo", "2.1", "3.0", "3.0(back)", "4.0", "quad", "5.0", "5.1"}
+    ),
+    Codec.eac3: _AC3_LAYOUTS,
+    Codec.ac3: _AC3_LAYOUTS,
+    Codec.opus: frozenset({"mono", "stereo", "3.0", "quad", "5.0", "5.1"}),
+    Codec.flac: None,
+}
+_BACK_LAYOUTS = {"quad(side)": "quad", "5.0(side)": "5.0", "5.1(side)": "5.1"}
+FALLBACK_LAYOUT = "5.1"
+
+
+def encodable_layout(layout: str, codec: Codec) -> str:
+    """Return a layout the codec's encoder supports, renaming side channels to back or using 5.1."""
+    supported = _ENCODER_LAYOUTS[codec]
+    if supported is None or layout in supported:
+        return layout
+    back = _BACK_LAYOUTS.get(layout)
+    return back if back in supported else FALLBACK_LAYOUT
+
+
 _MP4_CODECS = frozenset({Codec.aac, Codec.eac3, Codec.ac3})
 _MATROSKA_INPUTS = frozenset({".mkv", ".mk3d", ".mka"})
 _MP4_INPUTS: dict[str, str] = {".mp4": "mp4", ".m4v": "mp4", ".mov": "mov"}
