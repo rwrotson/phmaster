@@ -121,7 +121,11 @@ class NullProgress:
 
 
 def select_tracks(info: MediaInfo, selection: TrackSelection) -> list[AudioTrack]:
-    """Return the source tracks to process, skipping tracks phmaster generated."""
+    """Return the source tracks to process, skipping tracks phmaster generated.
+
+    A selected track without a known channel layout is an error, since a downmix could drop
+    one of its channels.
+    """
     count = len(info.audio_tracks)
     for index in selection.indices:
         if not 0 <= index < count:
@@ -138,6 +142,13 @@ def select_tracks(info: MediaInfo, selection: TrackSelection) -> list[AudioTrack
     ]
     if not tracks:
         raise MediaError(f"{info.path.name}: no audio tracks to process")
+    for track in tracks:
+        if track.layout is None:
+            raise MediaError(
+                f"{info.path.name}: audio track a:{track.audio_index} has {track.channels} "
+                "channels and no channel layout; set one with ffmpeg -ch_layout "
+                "or exclude the track with --track"
+            )
     return tracks
 
 

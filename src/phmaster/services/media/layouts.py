@@ -28,15 +28,12 @@ CHANNEL_LAYOUTS: dict[str, tuple[str, ...]] = {
     "octagonal": ("FL", "FR", "FC", "BL", "BR", "BC", "SL", "SR"),
 }
 
-# Layout ffmpeg assumes for a channel count when a stream has no layout.
+# Layout assumed for a channel count when a stream has no known layout. Other counts are
+# ambiguous: three channels may be 2.1 or 3.0, and a wrong guess drops or misplaces a channel.
 DEFAULT_LAYOUTS: dict[int, str] = {
     1: "mono",
     2: "stereo",
-    3: "2.1",
-    4: "4.0",
-    5: "5.0",
     6: "5.1",
-    7: "6.1",
     8: "7.1",
 }
 

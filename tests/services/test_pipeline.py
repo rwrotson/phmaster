@@ -31,7 +31,9 @@ NIGHT = PRESETS[PresetName.night]
 LIGHT = PRESETS[PresetName.light]
 
 
-def track(index: int, layout: str = "5.1", channels: int = 6, **changes: object) -> AudioTrack:
+def track(
+    index: int, layout: str | None = "5.1", channels: int = 6, **changes: object
+) -> AudioTrack:
     base = AudioTrack(
         stream_index=index + 1,
         audio_index=index,
@@ -73,6 +75,14 @@ def test_select_tracks_by_index_and_language() -> None:
     assert [t.audio_index for t in select_tracks(INFO, TrackSelection(indices=(1,)))] == [1]
     selection = TrackSelection(languages=("eng", "fra"))
     assert [t.audio_index for t in select_tracks(INFO, selection)] == [1]
+
+
+def test_select_tracks_rejects_tracks_without_a_layout() -> None:
+    info = media(track(0, "stereo", 2), track(1, None, 3))
+
+    with pytest.raises(MediaError, match="a:1 has 3 channels and no channel layout"):
+        select_tracks(info, TrackSelection())
+    assert [t.audio_index for t in select_tracks(info, TrackSelection(indices=(0,)))] == [0]
 
 
 def test_select_tracks_rejects_unknown_index() -> None:

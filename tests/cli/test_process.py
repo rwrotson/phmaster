@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from mediagen import AudioSpec, make_media
+from mediagen import AudioSpec, make_media, make_unknown_layout_wav
 from phmaster.cli.app import app
 from phmaster.cli.commands.process import resolve_format, resolve_presets, resolve_selection
 from phmaster.config import ProcessingSettings
@@ -79,6 +79,17 @@ def test_process_reports_failures_with_exit_code(tmp_path: Path) -> None:
     assert "would write good.mkv" in text.stdout
     assert data.exit_code == 4
     assert json.loads(data.stdout)["failures"][0]["error"]["type"] == "MediaError"
+
+
+def test_process_refuses_ambiguous_channel_layout(tmp_path: Path) -> None:
+    # Only the third channel carries sound; guessing 2.1 would drop it from the stereo downmix.
+    source = make_unknown_layout_wav(tmp_path / "audio.wav", [0.0, 0.0, 0.1])
+
+    result = runner.invoke(app, ["process", str(source)])
+
+    assert result.exit_code == 4
+    assert "a:0 has 3 channels and no channel layout" in result.stderr
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["audio.wav"]
 
 
 def test_process_rejects_empty_directory(tmp_path: Path) -> None:

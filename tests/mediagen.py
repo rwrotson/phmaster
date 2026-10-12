@@ -81,6 +81,51 @@ def make_media(
     return path
 
 
+def make_unknown_layout_wav(path: Path, levels: Sequence[float], *, duration: float = 2.0) -> Path:
+    """Generate a WAV file whose channels carry tones at `levels` and have no channel layout."""
+    raw = path.with_suffix(".raw")
+    exprs = "|".join(f"{level}*sin(2*PI*{220 + 70 * i}*t)" for i, level in enumerate(levels))
+    source = f"aevalsrc=exprs='{exprs}':s=48000:d={duration}"
+    run(
+        [
+            "ffmpeg",
+            "-nostdin",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            source,
+            "-f",
+            "s16le",
+            str(raw),
+        ]
+    )
+    run(
+        [
+            "ffmpeg",
+            "-nostdin",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "s16le",
+            "-ar",
+            "48000",
+            "-ch_layout",
+            f"{len(levels)}C",
+            "-i",
+            str(raw),
+            "-c:a",
+            "pcm_s16le",
+            str(path),
+        ]
+    )
+    raw.unlink()
+    return path
+
+
 def ffprobe_streams(path: Path) -> list[dict[str, Any]]:
     """Return ffprobe's stream list for a file."""
     output = run(["ffprobe", "-v", "error", "-show_streams", "-of", "json", str(path)])

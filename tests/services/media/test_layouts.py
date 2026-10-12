@@ -18,6 +18,9 @@ from phmaster.services.media.layouts import (
         (None, 2, "stereo"),
         ("weird", 8, "7.1"),
         (None, 24, None),
+        (None, 3, None),
+        ("unknown", 4, None),
+        (None, 1, "mono"),
     ],
 )
 def test_resolve_layout(layout: str | None, channels: int, expected: str | None) -> None:
