@@ -180,22 +180,23 @@ def typical_level(blocks: Signal, percentile: float = 50.0) -> float | None:
 def reference_loudness(envelope: LoudnessEnvelope) -> float | None:
     """Return the typical program loudness while dialogue is active, in LUFS.
 
-    Dialogue is active where the dialogue channel is within 10 LU of its speech level, the
-    80th percentile of its loudness, since speech is louder than the pauses between lines;
-    without enough such blocks the typical level of the whole program is used. None means
-    silence.
+    Dialogue is active where the dialogue channel, or the program itself when there is none,
+    is within 10 LU of its speech level, the 80th percentile of its loudness, since speech is
+    louder than the pauses between lines; without enough such blocks the typical level of the
+    whole program is used. None means silence.
     """
     program = _gating_blocks(envelope.program, MOMENTARY_SECONDS)
     overall = typical_level(program)
     if overall is None:
         return None
-    if envelope.dialog is not None:
-        dialog = _gating_blocks(envelope.dialog, MOMENTARY_SECONDS)
-        dialog_level = typical_level(dialog, DIALOG_PERCENTILE)
-        if dialog_level is not None:
-            program_lufs = to_lufs(program)
-            gated = program_lufs > overall + LRA_RELATIVE_GATE
-            active = gated & (to_lufs(dialog) > dialog_level - DIALOG_WINDOW)
-            if active.sum() >= MIN_DIALOG_FRACTION * gated.sum():
-                return float(np.median(program_lufs[active]))
+    speech = (
+        program if envelope.dialog is None else _gating_blocks(envelope.dialog, MOMENTARY_SECONDS)
+    )
+    speech_level = typical_level(speech, DIALOG_PERCENTILE)
+    if speech_level is not None:
+        program_lufs = to_lufs(program)
+        gated = program_lufs > overall + LRA_RELATIVE_GATE
+        active = gated & (to_lufs(speech) > speech_level - DIALOG_WINDOW)
+        if active.sum() >= MIN_DIALOG_FRACTION * gated.sum():
+            return float(np.median(program_lufs[active]))
     return overall

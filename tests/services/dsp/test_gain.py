@@ -32,6 +32,14 @@ def test_static_gain_moves_dialogue_to_target() -> None:
     np.testing.assert_allclose(plan.gain[500:2500], 10.0, atol=0.05)
 
 
+def test_dialogue_reaches_target_when_ambience_dominates() -> None:
+    envelope = scenes(*[(20, -42), (10, -24)] * 4)
+    plan = plan_gain(envelope, NIGHT)
+    output = to_lufs(windowed_power(envelope.program, 0.4)) + plan.gain
+    assert plan.static_gain == pytest.approx(NIGHT.target + 24, abs=0.1)
+    assert output[2300:2800].mean() == pytest.approx(NIGHT.target, abs=1.0)
+
+
 def test_loud_scene_is_reduced_before_it_starts() -> None:
     plan = plan_gain(EXPLOSION, NIGHT)
     start = 2000

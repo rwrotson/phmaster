@@ -153,3 +153,14 @@ def test_reference_ignores_scenes_far_louder_than_dialogue() -> None:
 
 def test_typical_level_of_silence_is_none() -> None:
     assert typical_level(np.zeros(10)) is None
+
+
+@pytest.mark.parametrize(("quiet", "dialogue"), [(-42.0, -24.0), (-50.0, -35.0)])
+def test_reference_without_dialogue_skips_long_quiet_stretches(
+    quiet: float, dialogue: float
+) -> None:
+    # Ambience or pauses fill most of the track, so its median is not the dialogue level.
+    cycle = [np.full(2000, power_of(quiet)), np.full(1000, power_of(dialogue))]
+    program = np.concatenate(cycle * 4)
+    envelope = LoudnessEnvelope(program=program, dialog=None, peak=0.0)
+    assert reference_loudness(envelope) == pytest.approx(dialogue, abs=0.1)

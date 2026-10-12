@@ -26,8 +26,8 @@ Loudness follows ITU-R BS.1770-4: a K-weighting filter (high shelf and high-pass
 The reference is the dialogue level that the preset target applies to:
 
 1. Blocks below −70 LUFS, and blocks 20 LU below the median, are ignored.
-2. With a center channel, dialogue is active where the center is within 10 LU of its speech level (the 80th percentile of its loudness). The reference is the median program loudness while dialogue is active.
-3. Otherwise the reference is the median program loudness.
+2. Dialogue is active where the center channel is within 10 LU of its speech level (the 80th percentile of its loudness). Without a center channel the program itself is used, so ambience or pauses that fill most of a stereo track do not become the reference.
+3. The reference is the median program loudness while dialogue is active. If fewer than 10% of the blocks qualify, it is the median program loudness.
 
 The median is used instead of the energy mean of integrated loudness, because a few seconds of explosions would otherwise pull the reference up and leave every quiet scene too quiet.
 
