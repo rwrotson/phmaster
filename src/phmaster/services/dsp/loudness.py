@@ -8,6 +8,7 @@ from scipy.signal import sosfilt
 
 Signal = NDArray[np.float64]
 
+# Rate of decoded PCM; the K-weighting coefficients below are designed for it.
 SAMPLE_RATE = 48_000
 BLOCK_SECONDS = 0.01
 BLOCK_SIZE = int(SAMPLE_RATE * BLOCK_SECONDS)

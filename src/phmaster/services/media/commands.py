@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from phmaster.services.dsp.loudness import SAMPLE_RATE
 from phmaster.services.media.layouts import channel_names
 from phmaster.services.media.tools import Tools
 
-SAMPLE_RATE = 48_000
 # The safety limiter runs at 4x the output rate to catch inter-sample (true) peaks.
 LIMITER_SAMPLE_RATE = 4 * SAMPLE_RATE
 SURROUND_MIX_LEVEL = 0.707

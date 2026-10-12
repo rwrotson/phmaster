@@ -23,7 +23,6 @@ from phmaster.services.pipeline import (
     TrackFormat,
     TrackSelection,
     iter_plans,
-    plan_all,
     plan_jobs,
     select_tracks,
 )
@@ -186,7 +185,7 @@ def test_iter_plans_is_lazy_and_releases_finished_pair(
     assert third[0].track.audio_index == 1
 
 
-def test_plan_all_keeps_list_result_and_reuses_interleaved_measurement(
+def test_iter_plans_reuses_interleaved_measurement(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     measured: list[int] = []
@@ -201,10 +200,9 @@ def test_plan_all_keeps_list_result_and_reuses_interleaved_measurement(
     jobs = plan_jobs([track(0), track(1)], [NIGHT, LIGHT], TrackFormat())
     jobs = [jobs[0], jobs[2], jobs[1], jobs[3]]
 
-    planned = plan_all(
+    planned = iter_plans(
         Tools("ffmpeg", "ffprobe"), Path("movie.mkv"), jobs, TrackFormat(), NullProgress()
     )
 
-    assert isinstance(planned, list)
     assert [job for job, _, _ in planned] == jobs
     assert measured == [0, 1]

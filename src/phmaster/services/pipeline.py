@@ -240,17 +240,6 @@ def render(  # noqa: PLR0913 - the render step needs the full job context
             progress.advance(len(frames) / SAMPLE_RATE)
 
 
-def plan_all(
-    tools: Tools,
-    source: Path,
-    jobs: Sequence[Job],
-    output: TrackFormat,
-    progress: ProgressSink,
-) -> list[tuple[Job, LoudnessEnvelope, GainPlan]]:
-    """Return all measured jobs and gain plans as a list."""
-    return list(iter_plans(tools, source, jobs, output, progress))
-
-
 def iter_plans(
     tools: Tools,
     source: Path,
