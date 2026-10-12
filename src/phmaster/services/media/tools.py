@@ -9,9 +9,12 @@ from pathlib import Path
 from phmaster.services.errors import FfmpegError, MediaError, ToolNotFoundError
 
 MIN_FFMPEG_MAJOR = 6
+# libavfilter shipped with ffmpeg 6.0; git builds report only this library version.
+MIN_LIBAVFILTER_MAJOR = 9
 _ENCODER_FLAGS_LENGTH = 6
 _MIN_ENCODER_FIELDS = 2
 _VERSION = re.compile(r"\bversion\s+n?(\d+)\.(\d+)")
+_LIBAVFILTER = re.compile(r"^libavfilter\s+(\d+)\.", re.MULTILINE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,8 +52,14 @@ def _check_version(path: str, program: str) -> None:
     except FfmpegError as error:
         raise ToolNotFoundError(f"{Path(path).name} version check failed: {error}") from error
     first_line = output.splitlines()[0] if output else ""
-    match = _VERSION.search(first_line) if first_line.startswith(f"{program} version ") else None
-    if match is None or int(match.group(1)) < MIN_FFMPEG_MAJOR:
+    if not first_line.startswith(f"{program} version "):
+        supported = False
+    elif release := _VERSION.search(first_line):
+        supported = int(release.group(1)) >= MIN_FFMPEG_MAJOR
+    else:
+        library = _LIBAVFILTER.search(output)
+        supported = library is not None and int(library.group(1)) >= MIN_LIBAVFILTER_MAJOR
+    if not supported:
         raise ToolNotFoundError(f"{program} 6.0+ required; reported: {first_line or 'unknown'}")
 
 

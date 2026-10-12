@@ -19,21 +19,43 @@ def test_find_tools_reports_missing_program() -> None:
         find_tools(ffmpeg="no-such-ffmpeg")
 
 
-@pytest.mark.parametrize(
-    ("ffmpeg_version", "ffprobe_version"),
-    [("5.1", "6.0"), ("6.0", "5.1"), ("unknown", "6.0")],
-)
-def test_find_tools_rejects_old_or_unknown_versions(
-    monkeypatch: pytest.MonkeyPatch, ffmpeg_version: str, ffprobe_version: str
+GIT_BUILD = "N-113560-g1f47b2b4a6-20240301"
+
+
+def fake_versions(
+    monkeypatch: pytest.MonkeyPatch, ffmpeg_version: str, ffprobe_version: str, libavfilter: int
 ) -> None:
     def version(command: list[str]) -> str:
         name = Path(command[0]).name
         value = ffmpeg_version if name == "ffmpeg" else ffprobe_version
-        return f"{name} version {value}\n"
+        return f"{name} version {value}\nlibavfilter    {libavfilter}.  4.100\n"
 
     monkeypatch.setattr(tools_module, "run_tool", version)
+
+
+@pytest.mark.parametrize(
+    ("ffmpeg_version", "ffprobe_version", "libavfilter"),
+    [
+        ("5.1", "6.0", 9),
+        ("6.0", "5.1", 9),
+        ("unknown", "6.0", 8),
+        (GIT_BUILD, GIT_BUILD, 8),
+    ],
+)
+def test_find_tools_rejects_old_or_unknown_versions(
+    monkeypatch: pytest.MonkeyPatch, ffmpeg_version: str, ffprobe_version: str, libavfilter: int
+) -> None:
+    fake_versions(monkeypatch, ffmpeg_version, ffprobe_version, libavfilter)
     with pytest.raises(ToolNotFoundError, match=r"6\.0\+ required"):
         find_tools()
+
+
+@pytest.mark.parametrize("build", [GIT_BUILD, "2024-03-04-git-e30369bc1c-full_build-www.gyan.dev"])
+def test_find_tools_accepts_git_builds_by_library_version(
+    monkeypatch: pytest.MonkeyPatch, build: str
+) -> None:
+    fake_versions(monkeypatch, build, build, 10)
+    assert find_tools().ffmpeg.endswith("ffmpeg")
 
 
 def test_require_encoders_reports_missing_audio_encoder(monkeypatch: pytest.MonkeyPatch) -> None:
