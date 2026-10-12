@@ -51,7 +51,7 @@ class BatchResult:
 
 
 def discover(paths: Iterable[Path], *, recursive: bool, suffix: str) -> list[Path]:
-    """Expand files and directories into video files, skipping outputs of earlier runs."""
+    """Expand files and directories into video files, skipping hidden files and earlier outputs."""
     found: list[Path] = []
     for path in paths:
         if path.is_file():
@@ -65,12 +65,17 @@ def discover(paths: Iterable[Path], *, recursive: bool, suffix: str) -> list[Pat
                     if candidate.is_file()
                     and candidate.suffix.lower() in VIDEO_EXTENSIONS
                     and not candidate.stem.endswith(suffix)
-                    and not candidate.name.startswith(".")
+                    and not _is_hidden(candidate.relative_to(path))
                 )
             )
         else:
             raise InvalidInputError(f"path not found: {path}")
     return list(dict.fromkeys(found))
+
+
+def _is_hidden(relative: Path) -> bool:
+    # Hidden directories include `.phmaster-*` work directories left by an interrupted run.
+    return any(part.startswith(".") for part in relative.parts)
 
 
 def process_files(

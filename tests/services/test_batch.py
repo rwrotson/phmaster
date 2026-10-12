@@ -21,6 +21,7 @@ def test_discover_expands_directories(tmp_path: Path) -> None:
     clip = touch(tmp_path / "a.MP4")
     touch(tmp_path / "b.phm.mkv")
     touch(tmp_path / ".hidden.mkv")
+    touch(tmp_path / ".phmaster-x1" / "output.mkv")
     touch(tmp_path / "notes.txt")
     nested = touch(tmp_path / "season" / "e01.avi")
 
