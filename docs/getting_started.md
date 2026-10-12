@@ -4,7 +4,7 @@
 
 - Python 3.14+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
-- [ffmpeg and ffprobe](https://ffmpeg.org/download.html) 6.0+ on `PATH` (also needed by the tests)
+- [ffmpeg and ffprobe](https://ffmpeg.org/download.html) 8.1+ on `PATH` (also needed by the tests; older ffprobe does not report MP4 track titles per stream)
 
 ## Installation
 

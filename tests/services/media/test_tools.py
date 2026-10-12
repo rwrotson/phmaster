@@ -23,38 +23,47 @@ GIT_BUILD = "N-113560-g1f47b2b4a6-20240301"
 
 
 def fake_versions(
-    monkeypatch: pytest.MonkeyPatch, ffmpeg_version: str, ffprobe_version: str, libavfilter: int
+    monkeypatch: pytest.MonkeyPatch,
+    ffmpeg_version: str,
+    ffprobe_version: str,
+    libavformat: tuple[int, int],
 ) -> None:
     def version(command: list[str]) -> str:
         name = Path(command[0]).name
         value = ffmpeg_version if name == "ffmpeg" else ffprobe_version
-        return f"{name} version {value}\nlibavfilter    {libavfilter}.  4.100\n"
+        major, minor = libavformat
+        return f"{name} version {value}\nlibavformat    {major}. {minor:2}.100\n"
 
     monkeypatch.setattr(tools_module, "run_tool", version)
 
 
 @pytest.mark.parametrize(
-    ("ffmpeg_version", "ffprobe_version", "libavfilter"),
+    ("ffmpeg_version", "ffprobe_version", "libavformat"),
     [
-        ("5.1", "6.0", 9),
-        ("6.0", "5.1", 9),
-        ("unknown", "6.0", 8),
-        (GIT_BUILD, GIT_BUILD, 8),
+        ("8.0.1", "8.1", (62, 12)),
+        ("8.1", "8.0.1", (62, 12)),
+        ("unknown", "8.1", (62, 3)),
+        (GIT_BUILD, GIT_BUILD, (61, 7)),
+        (GIT_BUILD, GIT_BUILD, (62, 11)),
     ],
 )
 def test_find_tools_rejects_old_or_unknown_versions(
-    monkeypatch: pytest.MonkeyPatch, ffmpeg_version: str, ffprobe_version: str, libavfilter: int
+    monkeypatch: pytest.MonkeyPatch,
+    ffmpeg_version: str,
+    ffprobe_version: str,
+    libavformat: tuple[int, int],
 ) -> None:
-    fake_versions(monkeypatch, ffmpeg_version, ffprobe_version, libavfilter)
-    with pytest.raises(ToolNotFoundError, match=r"6\.0\+ required"):
+    fake_versions(monkeypatch, ffmpeg_version, ffprobe_version, libavformat)
+    with pytest.raises(ToolNotFoundError, match=r"8\.1\+ required"):
         find_tools()
 
 
-@pytest.mark.parametrize("build", [GIT_BUILD, "2024-03-04-git-e30369bc1c-full_build-www.gyan.dev"])
+@pytest.mark.parametrize("libavformat", [(62, 12), (62, 13), (63, 0)])
+@pytest.mark.parametrize("build", [GIT_BUILD, "2026-03-04-git-e30369bc1c-full_build-www.gyan.dev"])
 def test_find_tools_accepts_git_builds_by_library_version(
-    monkeypatch: pytest.MonkeyPatch, build: str
+    monkeypatch: pytest.MonkeyPatch, build: str, libavformat: tuple[int, int]
 ) -> None:
-    fake_versions(monkeypatch, build, build, 10)
+    fake_versions(monkeypatch, build, build, libavformat)
     assert find_tools().ffmpeg.endswith("ffmpeg")
 
 

@@ -8,7 +8,7 @@ A CLI that adds smoothly loudness-normalized ("night mode") audio tracks to vide
 
 Distribution name: `phmaster` | Python package: `phmaster` | Entry point: `phmaster`
 
-Runtime requirement: `ffmpeg` and `ffprobe` (6.0+) on `PATH`. Integration tests generate their media with ffmpeg, so they need it too; CI installs it with apt.
+Runtime requirement: `ffmpeg` and `ffprobe` (8.1+; older ffprobe does not report MP4 track titles per stream) on `PATH`. Integration tests generate their media with ffmpeg, so they need it too; CI installs a static ffmpeg 8.1 build from `mwader/static-ffmpeg`, the Docker image a newer one.
 
 ## Commands
 
@@ -92,8 +92,8 @@ uv run --group docs properdocs build --strict
 Parallel jobs:
 
 - **`quality`** — `poe fmt-check`, `poe lint`, `poe lint-imports`, `poe typecheck`.
-- **`test`** — installs ffmpeg with apt, then `poe test` (95% branch coverage).
-- **`lowest`** — installs ffmpeg and the lowest allowed direct dependencies (`--resolution lowest-direct`)
+- **`test`** — installs static ffmpeg 8.1 (the oldest supported version), then `poe test` (95% branch coverage).
+- **`lowest`** — installs static ffmpeg 8.1 and the lowest allowed direct dependencies (`--resolution lowest-direct`)
   and runs pytest; it checks the declared lower bounds, which the lock does not.
 - **`build`** — `uv build`, `properdocs build --strict`, `poe audit`, trivy filesystem scan
   (CRITICAL/HIGH).

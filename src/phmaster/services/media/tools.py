@@ -8,13 +8,14 @@ from pathlib import Path
 
 from phmaster.services.errors import FfmpegError, MediaError, ToolNotFoundError
 
-MIN_FFMPEG_MAJOR = 6
-# libavfilter shipped with ffmpeg 6.0; git builds report only this library version.
-MIN_LIBAVFILTER_MAJOR = 9
+# ffprobe reports MP4 track titles per stream only since ffmpeg 8.1.
+MIN_FFMPEG = (8, 1)
+# libavformat shipped with ffmpeg 8.1; git builds report only library versions.
+MIN_LIBAVFORMAT = (62, 12)
 _ENCODER_FLAGS_LENGTH = 6
 _MIN_ENCODER_FIELDS = 2
 _VERSION = re.compile(r"\bversion\s+n?(\d+)\.(\d+)")
-_LIBAVFILTER = re.compile(r"^libavfilter\s+(\d+)\.", re.MULTILINE)
+_LIBAVFORMAT = re.compile(r"^libavformat\s+(\d+)\.\s*(\d+)\.", re.MULTILINE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,12 +56,14 @@ def _check_version(path: str, program: str) -> None:
     if not first_line.startswith(f"{program} version "):
         supported = False
     elif release := _VERSION.search(first_line):
-        supported = int(release.group(1)) >= MIN_FFMPEG_MAJOR
+        supported = (int(release.group(1)), int(release.group(2))) >= MIN_FFMPEG
     else:
-        library = _LIBAVFILTER.search(output)
-        supported = library is not None and int(library.group(1)) >= MIN_LIBAVFILTER_MAJOR
+        library = _LIBAVFORMAT.search(output)
+        supported = library is not None and (
+            (int(library.group(1)), int(library.group(2))) >= MIN_LIBAVFORMAT
+        )
     if not supported:
-        raise ToolNotFoundError(f"{program} 6.0+ required; reported: {first_line or 'unknown'}")
+        raise ToolNotFoundError(f"{program} 8.1+ required; reported: {first_line or 'unknown'}")
 
 
 @lru_cache(maxsize=16)

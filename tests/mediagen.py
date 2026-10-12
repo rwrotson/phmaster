@@ -1,10 +1,13 @@
 import json
 import re
 import subprocess
+import wave
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 from phmaster.services.media.layouts import channel_names
 
@@ -83,46 +86,15 @@ def make_media(
 
 def make_unknown_layout_wav(path: Path, levels: Sequence[float], *, duration: float = 2.0) -> Path:
     """Generate a WAV file whose channels carry tones at `levels` and have no channel layout."""
-    raw = path.with_suffix(".raw")
-    exprs = "|".join(f"{level}*sin(2*PI*{220 + 70 * i}*t)" for i, level in enumerate(levels))
-    source = f"aevalsrc=exprs='{exprs}':s=48000:d={duration}"
-    run(
-        [
-            "ffmpeg",
-            "-nostdin",
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            source,
-            "-f",
-            "s16le",
-            str(raw),
-        ]
-    )
-    run(
-        [
-            "ffmpeg",
-            "-nostdin",
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "s16le",
-            "-ar",
-            "48000",
-            "-ch_layout",
-            f"{len(levels)}C",
-            "-i",
-            str(raw),
-            "-c:a",
-            "pcm_s16le",
-            str(path),
-        ]
-    )
-    raw.unlink()
+    # The wave module writes plain PCM without a channel mask; the ffmpeg CLI may guess one.
+    t = np.arange(round(48000 * duration)) / 48000
+    tones = [level * np.sin(2 * np.pi * (220 + 70 * i) * t) for i, level in enumerate(levels)]
+    samples = np.round(np.stack(tones, axis=1) * 32767).astype("<i2")
+    with wave.open(str(path), "wb") as output:
+        output.setnchannels(len(levels))
+        output.setsampwidth(2)
+        output.setframerate(48000)
+        output.writeframes(samples.tobytes())
     return path
 
 
