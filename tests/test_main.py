@@ -1,4 +1,7 @@
+import logging
 import os
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -20,6 +23,27 @@ def test_main_calls_startup_sequence() -> None:
 
 def test_no_app_variables_leak_into_tests() -> None:
     assert not [name for name in os.environ if name.startswith("PHMASTER_")]
+
+
+def test_main_runs_without_usable_log_dir(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    clean_root_logger: logging.Logger,
+) -> None:
+    _ = clean_root_logger
+    blocker = tmp_path / "file"
+    blocker.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PHMASTER_LOG__DIR", str(blocker))
+    monkeypatch.setattr(sys, "argv", ["phmaster", "--help"])
+
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+
+    assert exit_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "Usage" in captured.out
+    assert "file logging disabled" in captured.err
 
 
 def test_main_rejects_invalid_configuration(

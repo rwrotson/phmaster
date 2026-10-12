@@ -177,7 +177,7 @@ Every setting needs a `Field(description=...)` and a line in `.env.example`; tes
 
 ### Logging (structlog)
 
-`setup_logging()` configures structlog bridged through stdlib via `ProcessorFormatter`. First-party commands use `get_logger()` from `phmaster.utils.log` so early logs go to stderr; third-party stdlib loggers share the same handler chain. Console output uses `ConsoleRenderer` by default; set `PHMASTER_LOG__FORMAT=json` for JSON. File output is always JSON.
+`setup_logging()` configures structlog bridged through stdlib via `ProcessorFormatter`. First-party commands use `get_logger()` from `phmaster.utils.log` so early logs go to stderr; third-party stdlib loggers share the same handler chain. Console output uses `ConsoleRenderer` by default; set `PHMASTER_LOG__FORMAT=json` for JSON. File output is always JSON. If the log directory or file cannot be opened, `setup_logging()` keeps only the console handler and logs a `file logging disabled` warning.
 
 Use `structlog.contextvars.bind_contextvars(key=value)` to attach context that appears on every log line.
 

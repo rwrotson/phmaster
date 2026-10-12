@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import sys
+from pathlib import Path
 from typing import TextIO, cast
 
 import structlog
@@ -17,13 +18,14 @@ class _AppConsoleHandler(logging.StreamHandler[TextIO]):
 
 
 def setup_logging(config: LogSettings | None = None) -> None:
-    """Configure shared structlog and stdlib console and file handlers."""
+    """Configure shared structlog and stdlib console and file handlers.
+
+    If the log file cannot be opened, only console logging is set up and a warning is logged.
+    """
     if config is None:
         config = load_settings().log
 
-    logs_dir_path = config.resolved_dir.resolve()
-    logs_dir_path.mkdir(parents=True, exist_ok=True)
-    log_file_path = logs_dir_path / config.file_name
+    log_file_path = config.resolved_dir.resolve() / config.file_name
 
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
@@ -58,13 +60,12 @@ def setup_logging(config: LogSettings | None = None) -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(config.level)
 
-    fh = _AppFileHandler(
-        filename=log_file_path,
-        maxBytes=config.file_max_bytes,
-        backupCount=config.file_backup_count,
-    )
-    fh.setLevel(config.file_level)
-    fh.setFormatter(file_formatter)
+    file_error: OSError | None = None
+    fh: _AppFileHandler | None = None
+    try:
+        fh = _file_handler(config, log_file_path, file_formatter)
+    except OSError as error:
+        file_error = error
 
     sh = _AppConsoleHandler(sys.stderr)
     sh.setLevel(config.console_level)
@@ -75,7 +76,8 @@ def setup_logging(config: LogSettings | None = None) -> None:
             root_logger.removeHandler(handler)
             handler.close()
 
-    root_logger.addHandler(fh)
+    if fh is not None:
+        root_logger.addHandler(fh)
     root_logger.addHandler(sh)
 
     structlog.configure(
@@ -84,6 +86,20 @@ def setup_logging(config: LogSettings | None = None) -> None:
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
+    if file_error is not None:
+        get_logger().warning(
+            "file logging disabled", path=str(log_file_path), error=str(file_error)
+        )
+
+
+def _file_handler(config: LogSettings, path: Path, formatter: logging.Formatter) -> _AppFileHandler:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handler = _AppFileHandler(
+        filename=path, maxBytes=config.file_max_bytes, backupCount=config.file_backup_count
+    )
+    handler.setLevel(config.file_level)
+    handler.setFormatter(formatter)
+    return handler
 
 
 def get_logger() -> structlog.typing.FilteringBoundLogger:

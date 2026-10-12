@@ -47,7 +47,11 @@ class LogSettings(BaseModel):
         default="console", description="Console log renderer; file logs are always JSON"
     )
     dir: Path | None = Field(
-        default=None, description="Log directory; the platform user log directory if unset"
+        default=None,
+        description=(
+            "Log directory; the platform user log directory if unset. "
+            "If it cannot be used, logs go only to the console"
+        ),
     )
     file_name: str = Field(default="phmaster.log", description="Log file name")
     file_max_bytes: int = Field(

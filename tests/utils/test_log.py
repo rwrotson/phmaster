@@ -39,6 +39,23 @@ def test_setup_logging_creates_log_dir(tmp_path: Path, clean_root_logger: loggin
     assert log_dir.exists()
 
 
+def test_setup_logging_without_usable_log_dir_keeps_console(
+    tmp_path: Path, clean_root_logger: logging.Logger, capsys: pytest.CaptureFixture[str]
+) -> None:
+    blocker = tmp_path / "file"
+    blocker.write_text("", encoding="utf-8")
+
+    setup_logging(LogSettings(dir=blocker / "logs"))
+
+    app_handlers = [
+        h
+        for h in clean_root_logger.handlers
+        if isinstance(h, (_AppConsoleHandler, _AppFileHandler))
+    ]
+    assert [type(h) for h in app_handlers] == [_AppConsoleHandler]
+    assert "file logging disabled" in capsys.readouterr().err
+
+
 def test_setup_logging_does_not_add_duplicate_handlers(
     tmp_path: Path, clean_root_logger: logging.Logger
 ) -> None:
