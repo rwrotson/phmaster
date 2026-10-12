@@ -73,6 +73,9 @@ class NormalizeResult:
 def output_path(source: Path, container: Container, suffix: str, *, in_place: bool) -> Path:
     """Return the output file: next to the source with a suffix, or the source itself."""
     if in_place:
+        # The container extension is lower case; keep `Movie.MKV` instead of a second name.
+        if source.suffix.lower() == container.extension:
+            return source
         return source.with_suffix(container.extension)
     return source.with_name(f"{source.stem}{suffix}{container.extension}")
 
@@ -151,7 +154,7 @@ def _normalize(tools: Tools, request: NormalizeRequest, sink: ProgressSink) -> N
         )
         if request.in_place:
             shutil.copymode(request.source, muxed)
-        if request.force or output == request.source:
+        if output == request.source or (request.force and not request.in_place):
             os.replace(muxed, output)
         elif not _publish_new(muxed, output):
             return NormalizeResult(
@@ -199,11 +202,12 @@ def _replaced_tracks(info: MediaInfo, jobs: list[Job]) -> tuple[int, ...]:
 
 
 def _skip_reason(info: MediaInfo, output: Path, request: NormalizeRequest) -> str | None:
-    if request.force:
-        return None
-    if info.has_generated_tracks:
+    if info.has_generated_tracks and not request.force:
         return "already contains phmaster tracks"
-    if output != request.source and output.exists():
+    # `--force` overwrites an earlier output, never another file that an in-place
+    # conversion would take the name of.
+    overwrites = request.force and not request.in_place
+    if output != request.source and output.exists() and not overwrites:
         return f"output exists: {output.name}"
     return None
 

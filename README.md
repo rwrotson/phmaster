@@ -52,7 +52,7 @@ phmaster process movie.avi --in-place
 phmaster process ~/Movies --dry-run
 ```
 
-Files that already contain phmaster tracks, and files whose output exists, are skipped; `--force` processes them anyway. With `--force`, a new track replaces an earlier phmaster track only if both come from the same source track and have the same title. Use `--title` to give new tracks a different title and keep the earlier ones. Outputs of earlier runs (`*.phm.*`) and hidden files and directories are ignored when scanning directories.
+Files that already contain phmaster tracks, and files whose output exists, are skipped; `--force` processes them anyway. `--in-place` never overwrites another file: an `.avi` whose `.mkv` name is taken is skipped even with `--force`. With `--force`, a new track replaces an earlier phmaster track only if both come from the same source track and have the same title. Use `--title` to give new tracks a different title and keep the earlier ones. Outputs of earlier runs (`*.phm.*`) and hidden files and directories are ignored when scanning directories.
 
 ### Options of `process`
 

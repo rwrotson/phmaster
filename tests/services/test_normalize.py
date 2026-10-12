@@ -243,14 +243,34 @@ def test_in_place_keeps_source_permissions(tools: Tools, tmp_path: Path, name: s
     assert result.output.stat().st_mode & 0o777 == 0o640
 
 
-def test_in_place_does_not_overwrite_another_file(tools: Tools, tmp_path: Path) -> None:
+@pytest.mark.parametrize("force", [False, True])
+def test_in_place_does_not_overwrite_another_file(
+    tools: Tools, tmp_path: Path, force: bool
+) -> None:
     source = make_media(tmp_path / "old.avi", [AudioSpec(codec="mp3")], duration=2)
     (tmp_path / "old.mkv").write_bytes(b"keep me")
 
-    result = normalize_file(tools, NormalizeRequest(source=source, presets=(NIGHT,), in_place=True))
+    result = normalize_file(
+        tools, NormalizeRequest(source=source, presets=(NIGHT,), in_place=True, force=force)
+    )
 
     assert result.skipped == "output exists: old.mkv"
     assert (tmp_path / "old.mkv").read_bytes() == b"keep me"
+    assert source.is_file()
+
+
+@pytest.mark.parametrize("force", [False, True])
+def test_in_place_keeps_an_upper_case_extension(tools: Tools, tmp_path: Path, force: bool) -> None:
+    source = make_media(tmp_path / "Movie.MKV", duration=2)
+
+    result = normalize_file(
+        tools, NormalizeRequest(source=source, presets=(NIGHT,), in_place=True, force=force)
+    )
+
+    assert result.output == source
+    assert result.skipped is None
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["Movie.MKV"]
+    assert len(audio_streams(source)) == 2
 
 
 @pytest.mark.parametrize(
@@ -383,8 +403,14 @@ def test_selection_limits_tracks(tools: Tools, tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("in_place", "expected"), [(False, "a/movie.phm.mp4"), (True, "a/movie.mp4")]
+    ("source", "in_place", "expected"),
+    [
+        ("a/movie.mp4", False, "a/movie.phm.mp4"),
+        ("a/movie.mp4", True, "a/movie.mp4"),
+        ("a/Movie.MP4", False, "a/Movie.phm.mp4"),
+        ("a/Movie.MP4", True, "a/Movie.MP4"),
+    ],
 )
-def test_output_path(in_place: bool, expected: str) -> None:
+def test_output_path(source: str, in_place: bool, expected: str) -> None:
     container = Container(".mp4", "mp4")
-    assert output_path(Path("a/movie.mp4"), container, ".phm", in_place=in_place) == Path(expected)
+    assert output_path(Path(source), container, ".phm", in_place=in_place) == Path(expected)
