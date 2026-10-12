@@ -30,6 +30,12 @@ _ENCODERS: dict[Codec, str] = {
     Codec.flac: "flac",
 }
 
+
+def encoder_name(codec: Codec) -> str:
+    """Return the ffmpeg encoder selected for a generated audio codec."""
+    return _ENCODERS[codec]
+
+
 _MP4_CODECS = frozenset({Codec.aac, Codec.eac3, Codec.ac3})
 _MATROSKA_INPUTS = frozenset({".mkv", ".mk3d", ".mka"})
 _MP4_INPUTS: dict[str, str] = {".mp4": "mp4", ".m4v": "mp4", ".mov": "mov"}
@@ -155,7 +161,7 @@ def encode_command(tools: Tools, spec: EncodeSpec) -> list[str]:
         "-af",
         limiter,
         "-c:a",
-        _ENCODERS[spec.codec],
+        encoder_name(spec.codec),
     ]
     if spec.bitrate is not None and spec.codec != Codec.flac:
         command += ["-b:a", spec.bitrate]

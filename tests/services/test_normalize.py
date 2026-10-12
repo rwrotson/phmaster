@@ -2,10 +2,11 @@ from pathlib import Path
 
 import pytest
 
+import phmaster.services.media.tools as tools_module
 import phmaster.services.normalize as normalize_module
 from mediagen import AudioSpec, ebur128, ffprobe_streams, make_media, packet_hashes
 from phmaster.services.dsp.presets import PRESETS, PresetName
-from phmaster.services.errors import FfmpegError
+from phmaster.services.errors import FfmpegError, ToolNotFoundError
 from phmaster.services.media.commands import Container
 from phmaster.services.media.probe import probe
 from phmaster.services.media.tools import Tools, find_tools, run_tool
@@ -160,6 +161,20 @@ def test_dry_run_writes_nothing(tools: Tools, tmp_path: Path) -> None:
     assert result.dry_run
     assert len(result.tracks) == 1
     assert sorted(p.name for p in tmp_path.iterdir()) == ["movie.mkv"]
+
+
+def test_missing_encoder_fails_before_measurement(
+    tools: Tools, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = make_media(tmp_path / "movie.mkv", duration=2)
+    progress = RecordingProgress()
+    monkeypatch.setattr(tools_module, "_available_audio_encoders", lambda _: frozenset())
+
+    with pytest.raises(ToolNotFoundError, match="aac"):
+        normalize_file(tools, NormalizeRequest(source=source, presets=(NIGHT,)), progress)
+
+    assert progress.stages == []
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["movie.mkv"]
 
 
 def test_in_place_replaces_the_source(tools: Tools, tmp_path: Path) -> None:

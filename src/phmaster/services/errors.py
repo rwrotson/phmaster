@@ -15,7 +15,7 @@ class InvalidInputError(ServiceError):
 
 
 class ToolNotFoundError(ServiceError):
-    """A required external program (ffmpeg, ffprobe) is not installed."""
+    """A required external program or capability is unavailable."""
 
     exit_code = 3
 

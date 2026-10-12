@@ -15,6 +15,8 @@ Watch films at night without waking the neighbours. `phmaster` adds loudness-nor
 - [ffmpeg and ffprobe](https://ffmpeg.org/download.html) 6.0 or newer on `PATH`
 - Python 3.14+ and [uv](https://docs.astral.sh/uv/), or Docker
 
+The CLI checks tool versions and the required audio encoders before processing media.
+
 ## Installation
 
 ```bash

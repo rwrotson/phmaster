@@ -3,8 +3,9 @@ from pathlib import Path
 
 import pytest
 
+import phmaster.services.media.tools as tools_module
 from phmaster.services.errors import FfmpegError, MediaError, ToolNotFoundError
-from phmaster.services.media.tools import find_tools, run_tool
+from phmaster.services.media.tools import Tools, find_tools, require_encoders, run_tool
 
 
 def test_find_tools_resolves_absolute_paths() -> None:
@@ -16,6 +17,35 @@ def test_find_tools_resolves_absolute_paths() -> None:
 def test_find_tools_reports_missing_program() -> None:
     with pytest.raises(ToolNotFoundError, match="no-such-ffmpeg not found"):
         find_tools(ffmpeg="no-such-ffmpeg")
+
+
+@pytest.mark.parametrize(
+    ("ffmpeg_version", "ffprobe_version"),
+    [("5.1", "6.0"), ("6.0", "5.1"), ("unknown", "6.0")],
+)
+def test_find_tools_rejects_old_or_unknown_versions(
+    monkeypatch: pytest.MonkeyPatch, ffmpeg_version: str, ffprobe_version: str
+) -> None:
+    def version(command: list[str]) -> str:
+        name = Path(command[0]).name
+        value = ffmpeg_version if name == "ffmpeg" else ffprobe_version
+        return f"{name} version {value}\n"
+
+    monkeypatch.setattr(tools_module, "run_tool", version)
+    with pytest.raises(ToolNotFoundError, match=r"6\.0\+ required"):
+        find_tools()
+
+
+def test_require_encoders_reports_missing_audio_encoder(monkeypatch: pytest.MonkeyPatch) -> None:
+    def encoders(command: list[str]) -> str:
+        assert command[-1] == "-encoders"
+        return " A..... aac                  AAC\n V..... libx264              H.264\n"
+
+    monkeypatch.setattr(tools_module, "run_tool", encoders)
+    tools = Tools(ffmpeg="fake-aac-only", ffprobe="fake-ffprobe")
+    require_encoders(tools, ["aac"])
+    with pytest.raises(ToolNotFoundError, match="eac3"):
+        require_encoders(tools, ["aac", "eac3"])
 
 
 def test_run_tool_returns_stdout() -> None:

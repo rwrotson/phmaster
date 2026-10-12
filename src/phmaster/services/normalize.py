@@ -5,9 +5,15 @@ from pathlib import Path
 
 from phmaster.services.dsp.presets import Preset
 from phmaster.services.errors import InvalidInputError
-from phmaster.services.media.commands import Container, NewTrack, choose_container, mux_command
+from phmaster.services.media.commands import (
+    Container,
+    NewTrack,
+    choose_container,
+    encoder_name,
+    mux_command,
+)
 from phmaster.services.media.probe import MediaInfo, probe
-from phmaster.services.media.tools import Tools, run_tool
+from phmaster.services.media.tools import Tools, require_encoders, run_tool
 from phmaster.services.pipeline import (
     Job,
     NullProgress,
@@ -94,6 +100,7 @@ def normalize_file(
             request.source, output, tracks, skipped=skipped, dry_run=request.dry_run
         )
 
+    require_encoders(tools, (encoder_name(job.codec) for job in jobs))
     titles = {job.title for job in jobs}
     replaced = (
         tuple(

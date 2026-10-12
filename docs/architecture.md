@@ -39,7 +39,7 @@ The signal processing is described on the [Algorithm](algorithm.md) page.
 
 1. `main()` loads `Settings`. Invalid configuration is printed to stderr and exits with code 2. It then configures logging from `settings.log`.
 2. The root callback in `cli/app.py` stores an `AppContext` (settings, console, output format) in `ctx.obj`. Commands read it with `get_app_context(ctx)`.
-3. A command combines its options with `settings.processing`, locates ffmpeg, and calls a use case in `services/`.
+3. A command combines its options with `settings.processing`, checks ffmpeg and ffprobe versions, and calls a use case in `services/`. Before measuring for processing, the use case checks the selected audio encoders.
 4. The use case returns a result or raises a `ServiceError` subclass for an expected failure.
 5. The command renders the result with `render_output()`: JSON on stdout for `--output-format json`, Rich text otherwise.
 
