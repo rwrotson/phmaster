@@ -178,6 +178,7 @@ Behaviour can be overridden via environment variables or a `.env` file. Sections
 
 | Prefix | Controls |
 |--------|----------|
+| `PHMASTER_PROCESSING__*` | Default presets, layout, codec, bitrates, languages, output suffix, ffmpeg paths |
 | `PHMASTER_CONSOLE__*` | Rich console (width, colors, markup, quiet mode) |
 | `PHMASTER_LOG__*` | Log levels, console renderer, log directory, file rotation |
 
