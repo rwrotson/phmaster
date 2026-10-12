@@ -1,3 +1,5 @@
+import errno
+import os
 from pathlib import Path
 
 import pytest
@@ -6,7 +8,12 @@ import phmaster.services.media.tools as tools_module
 import phmaster.services.normalize as normalize_module
 from mediagen import AudioSpec, ebur128, ffprobe_streams, make_media, packet_hashes
 from phmaster.services.dsp.presets import PRESETS, PresetName
-from phmaster.services.errors import FfmpegError, ToolNotFoundError
+from phmaster.services.errors import (
+    FfmpegError,
+    InvalidInputError,
+    MediaError,
+    ToolNotFoundError,
+)
 from phmaster.services.media.commands import Container
 from phmaster.services.media.probe import probe
 from phmaster.services.media.tools import Tools, find_tools, run_tool
@@ -236,6 +243,76 @@ def test_output_created_during_mux_is_preserved(
     assert output.read_bytes() == b"other process"
     assert source.is_file()
     assert not list(tmp_path.glob(".phmaster-*"))
+
+
+def no_hard_links(source: Path, target: Path) -> None:
+    raise OSError(errno.EPERM, "Operation not permitted")
+
+
+def test_publishes_without_hard_links(
+    tools: Tools, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = make_media(tmp_path / "movie.mkv", duration=2)
+    monkeypatch.setattr(os, "link", no_hard_links)
+
+    result = normalize_file(tools, NormalizeRequest(source=source, presets=(NIGHT,)))
+
+    assert result.skipped is None
+    assert len(audio_streams(result.output)) == 2
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["movie.mkv", "movie.phm.mkv"]
+
+
+def test_publishing_without_hard_links_preserves_competing_output(
+    tools: Tools, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = make_media(tmp_path / "movie.mkv", duration=2)
+    output = tmp_path / "movie.phm.mkv"
+
+    def create_competing_output(command: list[str]) -> str:
+        result = run_tool(command)
+        output.write_bytes(b"other process")
+        return result
+
+    monkeypatch.setattr(os, "link", no_hard_links)
+    monkeypatch.setattr(normalize_module, "run_tool", create_competing_output)
+    result = normalize_file(tools, NormalizeRequest(source=source, presets=(NIGHT,)))
+
+    assert result.skipped == "output exists: movie.phm.mkv"
+    assert output.read_bytes() == b"other process"
+    assert not list(tmp_path.glob(".phmaster-*"))
+
+
+def test_failed_publish_without_hard_links_removes_placeholder(
+    tools: Tools, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = make_media(tmp_path / "movie.mkv", duration=2)
+
+    def broken_replace(source: Path, target: Path) -> None:
+        raise OSError(errno.EIO, "Input/output error")
+
+    monkeypatch.setattr(os, "link", no_hard_links)
+    monkeypatch.setattr(os, "replace", broken_replace)
+    with pytest.raises(MediaError, match="Input/output error"):
+        normalize_file(tools, NormalizeRequest(source=source, presets=(NIGHT,)))
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["movie.mkv"]
+
+
+def test_empty_title_is_rejected(tools: Tools, tmp_path: Path) -> None:
+    with pytest.raises(InvalidInputError, match="title must not be empty"):
+        normalize_file(
+            tools, NormalizeRequest(source=tmp_path / "movie.mkv", presets=(NIGHT,), title=" ")
+        )
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores directory permissions")
+def test_unwritable_directory_is_a_media_error(tools: Tools, tmp_path: Path) -> None:
+    source = make_media(tmp_path / "movie.mkv", duration=2)
+    tmp_path.chmod(0o555)
+    try:
+        with pytest.raises(MediaError, match=r"movie\.mkv: .*Permission denied"):
+            normalize_file(tools, NormalizeRequest(source=source, presets=(NIGHT,)))
+    finally:
+        tmp_path.chmod(0o755)
 
 
 def test_failed_mux_leaves_no_files(

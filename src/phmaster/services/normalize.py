@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from phmaster.services.dsp.presets import Preset
-from phmaster.services.errors import InvalidInputError
+from phmaster.services.errors import InvalidInputError, MediaError
 from phmaster.services.media.commands import (
     Container,
     NewTrack,
@@ -82,7 +82,13 @@ def normalize_file(
     """Add normalized tracks to a copy of a media file, or to the file itself in place."""
     if request.title is not None and not request.title.strip():
         raise InvalidInputError("track title must not be empty")
-    sink = progress or NullProgress()
+    try:
+        return _normalize(tools, request, progress or NullProgress())
+    except OSError as error:
+        raise MediaError(f"{request.source.name}: {error}") from error
+
+
+def _normalize(tools: Tools, request: NormalizeRequest, sink: ProgressSink) -> NormalizeResult:
     info = probe(tools, request.source)
     jobs = plan_jobs(
         select_tracks(info, request.selection),
@@ -151,19 +157,37 @@ def normalize_file(
         )
         if request.force or output == request.source:
             os.replace(muxed, output)
-        else:
-            try:
-                os.link(muxed, output)
-            except FileExistsError:
-                return NormalizeResult(
-                    request.source,
-                    output,
-                    tuple(generated),
-                    skipped=f"output exists: {output.name}",
-                )
+        elif not _publish_new(muxed, output):
+            return NormalizeResult(
+                request.source,
+                output,
+                tuple(generated),
+                skipped=f"output exists: {output.name}",
+            )
     if request.in_place and output != request.source:
         request.source.unlink()
     return NormalizeResult(request.source, output, tuple(generated))
+
+
+def _publish_new(muxed: Path, output: Path) -> bool:
+    """Move `muxed` to a new `output` path; False if another process created it first."""
+    try:
+        os.link(muxed, output)
+    except FileExistsError:
+        return False
+    except OSError:
+        # FAT, exFAT, and some network shares have no hard links: reserve the name with an
+        # exclusive create, then replace the empty placeholder.
+        try:
+            os.close(os.open(output, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        except FileExistsError:
+            return False
+        try:
+            os.replace(muxed, output)
+        except BaseException:
+            output.unlink(missing_ok=True)
+            raise
+    return True
 
 
 def _skip_reason(info: MediaInfo, output: Path, request: NormalizeRequest) -> str | None:
