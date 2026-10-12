@@ -58,8 +58,12 @@ def make_media(
     *,
     duration: float = 5.0,
     subtitles: bool = False,
+    timecode: bool = False,
 ) -> Path:
-    """Generate a small media file with a test video, synthetic audio, and optional subtitles."""
+    """Generate a small media file with a test video, synthetic audio, and optional extras.
+
+    `timecode` adds a timecode data stream (MP4 and MOV).
+    """
     inputs = ["-f", "lavfi", "-i", f"testsrc=size=64x48:rate=10:duration={duration}"]
     for spec in audio:
         inputs += ["-f", "lavfi", "-i", _audio_source(spec, duration)]
@@ -71,6 +75,8 @@ def make_media(
         inputs += ["-i", str(srt)]
         maps += ["-map", f"{len(audio) + 1}:s"]
         codecs += ["-c:s", _SUBTITLE_CODECS[path.suffix]]
+    if timecode:
+        codecs += ["-timecode", "00:00:00:00"]
     run(["ffmpeg", "-nostdin", "-v", "error", "-y", *inputs, *maps, *codecs, str(path)])
     return path
 

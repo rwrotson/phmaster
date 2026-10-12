@@ -166,6 +166,36 @@ def test_mux_appends_tracks_and_copies_source(
     assert packet_hashes(output, "0:a:0") == packet_hashes(source, "0:a:0")
 
 
+@pytest.mark.parametrize(
+    ("name", "container", "data_streams"),
+    [
+        # The MP4 muxer writes a new timecode track from the copied video stream's tag.
+        ("movie.mp4", Container(".mp4", "mp4"), 1),
+        ("movie.mov", Container(".mkv", "matroska"), 0),
+        ("movie.mov", Container(".mov", "mov"), 1),
+    ],
+)
+def test_mux_handles_timecode_data_streams(
+    tools: Tools, tmp_path: Path, name: str, container: Container, data_streams: int
+) -> None:
+    source = make_media(tmp_path / name, duration=1, timecode=True)
+    assert [s["codec_type"] for s in ffprobe_streams(source)].count("data") == 1
+    track = _encode(
+        tools, tmp_path / "new.mka", "stereo", Codec.aac, np.zeros((9600, 2), np.float32)
+    )
+    output = tmp_path / f"out{container.extension}"
+    new = NewTrack(path=track, title="phmaster night", language=None, tag="night")
+
+    run_tool(
+        mux_command(tools, source, [new], output, container, source_audio_count=1, set_default=True)
+    )
+
+    streams = [s["codec_type"] for s in ffprobe_streams(output)]
+    assert streams.count("data") == data_streams
+    assert streams.count("audio") == 2
+    assert packet_hashes(output, "0:v:0") == packet_hashes(source, "0:v:0")
+
+
 def test_mux_preserves_source_audio_dispositions(tools: Tools, tmp_path: Path) -> None:
     original = make_media(tmp_path / "original.mkv", duration=1)
     source = tmp_path / "source.mkv"
@@ -227,8 +257,9 @@ def test_mux_command_options(tools: Tools) -> None:
         set_default=False,
     )
     assert command[command.index("-fflags") + 1] == "+genpts"
-    assert command.count("-map") == 3
+    assert command.count("-map") == 4
     assert command[command.index("-map") + 1] == "0"
+    assert command[command.index("-map") + 3] == "-0:d"
     assert "-disposition:a" not in command
     assert command[command.index("-metadata:s:a:3") + 1] == "title=t1"
     assert "language=und" in command

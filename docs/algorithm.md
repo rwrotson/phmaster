@@ -6,7 +6,7 @@ phmaster renders each new track in two passes over the decoded audio. The first 
 pass 1   ffmpeg decode → f32 PCM 48 kHz → K-weighting → block power (10 ms)
 plan     reference level → slow gain + compressor → lookahead and release smoothing
 pass 2   ffmpeg decode → PCM × gain → ffmpeg: 4× oversampled true-peak limiter → encoder
-mux      ffmpeg -c copy: all source streams + new tracks (fails if the output container rejects a stream)
+mux      ffmpeg -c copy: source streams + new tracks (data streams kept only in MOV; fails if the output container rejects another stream)
 ```
 
 Audio is streamed in one-second chunks. The envelope and gain curve grow with the track length, but processing one track and layout at a time avoids retaining plans for all output tracks.

@@ -93,6 +93,12 @@ class Container:
         """Tell whether the container is Matroska."""
         return self.muxer == "matroska"
 
+    @property
+    def keeps_data_streams(self) -> bool:
+        """Tell whether copied data streams, such as timecode tracks, can be muxed."""
+        # Matroska and WebM reject data streams; MP4 cannot write copied timecode tracks.
+        return self.muxer == "mov"
+
 
 def decode_command(tools: Tools, spec: DecodeSpec) -> list[str]:
     """Build an ffmpeg command that writes the track as interleaved f32le PCM to stdout."""
@@ -191,7 +197,10 @@ def mux_command(  # noqa: PLR0913 - every argument shapes the ffmpeg command
     set_default: bool,
     excluded_stream_indices: Sequence[int] = (),
 ) -> list[str]:
-    """Build a command that copies source streams except exclusions and appends new tracks."""
+    """Build a command that copies source streams except exclusions and appends new tracks.
+
+    Data streams are dropped unless the container can hold them.
+    """
     command = [tools.ffmpeg, "-nostdin", "-v", "error", "-y"]
     if source.suffix.lower() in _GENPTS_INPUTS:
         command += ["-fflags", "+genpts"]
@@ -201,6 +210,7 @@ def mux_command(  # noqa: PLR0913 - every argument shapes the ffmpeg command
 
     maps = [
         "0",
+        *(() if container.keeps_data_streams else ("-0:d",)),
         *(f"-0:{index}" for index in excluded_stream_indices),
         *(f"{number}:a:0" for number in range(1, len(tracks) + 1)),
     ]
